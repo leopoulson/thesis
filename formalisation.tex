@@ -60,7 +60,7 @@
   \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}
     {\textbf{TODO:} #1}}}}
 
-
+\newcommand{\interrupt}[1]{!\(#1\)}
 
 \newcommand{\fighead}{\textbf}
 
@@ -586,7 +586,7 @@ $\boxed{\checksdefkg{C}{e}}$
 \slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
 \end{syntax}
 \caption{Runtime Syntax}
-\label{fig:values}
+\label{fig:runtime-syntax}
 %% \figrule
 \end{figure}
 
@@ -823,7 +823,7 @@ Furthermore, see that the \code{yield} operation adds no more information; it is
 just used as a placeholder operation; any operation would work. As such, we keep
 searching for a better solution.
 
-\section{Relaxing Catches}
+\section{Relaxing Catches}\label{sec:relaxingcatches}
 
 The key to this lies in the catchall pattern, $\effin{x}$, and the pattern
 binding rules of Figure \ref{fig:pattern-binding}.
@@ -886,6 +886,57 @@ suspend _ unit _ = unit
 \todo{ Verify that this particular example really works. }
 
 \noindent Why does this work? \todo{explain}
+
+\section{Interrupting Arbitrary Terms}
+
+The approach of Section \ref{sec:relaxingcatches} can only interrupt command
+invocations. If \code{runner} were instead a sequence of pure
+computations\footnote{I.e. \code{runner! = 1 + 1; 1 + 1; 1 + 1; ...}}, we would
+be unable to interrupt it; it does not invoke commands.
+
+As such, we need to further change the pattern binding rules of Figure
+\ref{fig:pattern-binding}. This is to let us interrupt arbitrary computation
+terms. In Figure \ref{fig:runtime-syntax-updated}, we see an updated version of
+the runtime syntax; this allows for the suspension of arbitrary \emph{uses},
+being function applications and constructions \todo{verify that uses are
+  ``just'' these}.
+
+With this in mind, we now give the
+
+
+\begin{figure}[t]
+%% \figrule
+\begin{syntax}
+\slab{uses}                    & m   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{constructions}           & n   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{use values}              & u   &::= & x \gor f~\many{R} \gor \cu (v : A) \\
+\slab{non-use values}          & v   &::= & k~\many{w} \gor \thunk{e} \\
+\slab{construction values}     & w   &::= & \uc u \gor v \\
+\slab{normal forms}            & t   &::= & w \gor \freeze{\EC[c~\many{R}~\many{w}]} \gor \interrupt{m}\\
+\slab{evaluation frames}       & \EF &::= & [~]~\many{n}
+                                      \gor  u~(\many{t},[~],\many{n})
+                                      \gor  \cu([~]:A) \\
+                               &     &\gor& \uc [~]
+                                      \gor  k~(\many{w},[~],\many{n})
+                                      \gor  c~\many{R}~(\many{w},[~],\many{n}) \\
+                               &     &\gor& \key{let}~f: P = [~]~\key{in}~n
+                                      \gor \effin{\adapt}~[~] \\
+\slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
+\end{syntax}
+\caption{Runtime Syntax, Updated with Suspension of Uses}
+\label{fig:runtime-syntax-updated}
+%% \figrule
+\end{figure}
+
+
+
+
+
+
+
+
+
+
 
 
 %% \bibliographystyle{plain}
