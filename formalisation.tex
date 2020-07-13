@@ -468,178 +468,6 @@ Formal development of Frank.
 
 
 
-\begin{figure}%% \figrule
-\flushleft
-$\boxed{\adjact{\sigs}{\adj}{\sigs'}}$
-\begin{mathpar}
-\inferrule[A-Adj]{\adjact{\sigs}{\adapt}{\sigs'} \\
-  \adjact{\sigs'}{\ext}{\sigs''}}
-          {\adjact{\sigs}{\adapt\pipe\ext}{\sigs''}}
-\end{mathpar}
-$\boxed{\adjact{\sigs}{\ext}{\sigs'}}$
-\begin{mathpar}
-\inferrule[A-Ext-Id]{ }
-          {\adjact{\sigs}{\id}{\sigs}}
-
-\inferrule[A-Ext-Snoc]{\adjact{\sigs}{\ext}{\sigs'} }
-          {\adjact{\sigs}{\ext, \sig~\many{R}}{\sigs', \sig~\many{R}}}
-\end{mathpar}
-$\boxed{\adjact{\sigs}{\adapt}{\sigs'}}$
-\begin{mathpar}
-\inferrule[A-Adapt-Id]{ }
-          {\adjact{\sigs}{\id}{\sigs}}
-
-\inferrule[A-Adapt-Snoc]{\adjact{\sigs}{\adapt}{\sigs'} \\
-    \adpcom{\sigs'}{\sig}{S}{S'}{\sigs''}}
-          {\adjact{\sigs}{\adapt, \sig(S \to S')}{\sigs''}}
-\end{mathpar}
-$\boxed{\adpcom{\sigs}{\sig}{S}{S'}{\sigs'}}$
-\begin{mathpar}
-\inferrule[A-Adapt-Com]
-  {\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv} \\
-   \itrinst{\ienv}{S'}{\sig}{\ext} \\
-   \adjact{\sigs'}{\ext}{\sigs''}}
-  {\adpcom{\sigs}{\sig}{S}{S'}{\sigs''}}
-\end{mathpar}
-
-$\boxed{\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv}}$
-\begin{mathpar}
-\inferrule[I-Pat-Id]{ }
-          {\itrbnd{\sigs}{\pid}{\sig}{\sigs}{s : \sigs}}
-
-\inferrule[I-Pat-Bind]{\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv}}
-          {\itrbnd{\sigs,\sig~\many{R}}{S~a}{\sig}{\sigs'}
-            {\ienv,a:\sig~\many{R}}}
-
-\inferrule[I-Pat-Skip]{
-  \itrbnd{\sigs}{S~a}{\sig}{\sigs'}{\ienv} \\
-  \sig \neq \sig'}
-  {\itrbnd{\sigs,\sig'~\many{R}}{S~a}{\sig}
-          {\sigs',\sig'~\many{R}}{\ienv}}
-\end{mathpar}
-
-
-$\boxed{\itrinst{\ienv}{S}{\sig}{\ext}}$
-\begin{mathpar}
-\inferrule[I-Inst-Id]{s\in\meta{dom}(\ienv)}
-          {\itrinst{\ienv}{\pid}{\sig}{\id}}
-
-\inferrule[I-Inst-Lkp]{a\in\meta{dom}(\ienv) \\
-  \itrinst{\ienv}{S}{\sig}{\ext} \\
-  \ienv(a)=\sig~\many{R}}
-          {\itrinst{\ienv}{S~a}{\sig}{\ext,\sig~\many{R}}}
-\end{mathpar}
-%% \caption{Action of an Adaptor's Interface Component on an Ability}
-\label{fig:interface-components}
-
-
-
-\caption{Action of an Adjustment on an Ability and Auxiliary Judgements}
-\label{fig:act-adj}
-%% \figrule
-\end{figure}
-
-
-\begin{figure} % \figrule
-\flushleft
-
-\[
-\mathcal{X} ::= A \gor C \gor T \gor G \gor Z \gor R \gor P
-                  \gor \seed \gor \sigs \gor \ext \gor \adapt \gor \adj
-                  \gor \Gamma \gor \exists \kenva.\Gamma \gor \ienv
-\]
-
-$\boxed{\kindchecksk{\mathcal{X}}}$
-%% \boxed{\kindchecksk{C}}\boxed{\kindchecksk{T}}
-%% \boxed{\kindchecksk{G}}\boxed{\kindchecksk{Z}}\boxed{\kindchecksk{R}}\boxed{\kindchecksk{P}}
-%% \boxed{\kindchecksk{\seed}}\boxed{\kindchecksk{\sigs}}
-%% \boxed{\kindchecksk{\ext}}\boxed{\kindchecksk{\adapt}}\boxed{\kindchecksk{\adj}}
-%% \boxed{\kindchecksk{S}}\boxed{\kindchecksk{\Gamma}}\boxed{\kindchecksk{\ienv}}
-%% $
-\begin{mathpar}
-\inferrule[WF-Val]
-  { }
-  {\kindchecks{\kenv, X}{X}}
-
-\inferrule[WF-Eff]
-  { }
-  {\kindchecks{\kenv, [E]}{E}}
-
-\inferrule[WF-Poly]
-  {\kindchecks{\kenv, \many{Z}}{A}}
-  {\kindchecks{\kenv}{\forall \many{Z}.A}}
-\\
-\inferrule[WF-Data]
-  {(\kindchecksk{R})_i}
-  {\kindchecksk{D~\many{R}}}
-
-\inferrule[WF-Thunk]
-  {\kindchecksk{C}}
-  {\kindchecksk{\thunk{C}}}
-
-\inferrule[WF-Comp]
-  {(\kindchecksk{T})_i \\ \kindchecksk{G}}
-  {\kindchecksk{\many{T \to}~ G}}
-
-\inferrule[WF-Arg]
-  {\kindchecksk{\adj} \\ \kindchecksk{A}}
-  {\kindchecksk{\effin{\adj}A}}
-
-\inferrule[WF-Ret]
-  {\kindchecksk{\sigs} \\ \kindchecksk{A}}
-  {\kindchecksk{\effout{\sigs}A}}
-
-\inferrule[WF-Ability]
-  {\kindchecksk{\sigs}}
-  {\kindchecksk{[\sigs]}}
-
-\inferrule[WF-Pure]
-  { }
-  {\kindchecksk{\nowt}}
-
-\inferrule[WF-Id]
-  { }
-  {\kindchecksk{\id}}
-
-\inferrule[WF-Ext]
-  {\kindchecksk{\ext} \\ (\kindchecksk{R})_i}
-  {\kindchecksk{\ext, \sig~\many{R}}}
-
-\inferrule[WF-Adapt]
-  {\kindchecksk{\adapt}}
-  {\kindchecksk{\adapt, \sig~(S \to S')}}
-\\
-\inferrule[WF-Empty]
-  { }
-  {\kindchecksk{\cdot}}
-
-\inferrule[WF-Mono]
-  {\kindchecksk{\Gamma} \\ \kindchecksk{A}}
-  {\kindchecksk{\Gamma, x : A}}
-
-\inferrule[WF-Poly]
-  {\kindchecksk{\Gamma} \\ \kindchecksk{P}}
-  {\kindchecksk{\Gamma, f : P}}
-\\
-
-\inferrule[WF-Existential]
-  {\kindchecks{\kenv, \kenva}{\Gamma}}
-  {\kindchecksk{\exists \kenva.\Gamma}}
-
-\inferrule[WF-Interface]
-  {\kindchecksk{\ienv} \\ (\kindchecksk{R})_i}
-  {\kindchecksk{\ienv, x : \sig~\many{R}}}
-
-\end{mathpar}
-
-
-\caption{Well-Formedness Rules}
-\label{fig:well-formedness}
-
-% \figrule
-\end{figure}
-
-
 \begin{figure} % \figrule
 \flushleft
 %% $\boxed{\kindchecksk{R}}$
@@ -732,45 +560,6 @@ $\boxed{\checksdefkg{C}{e}}$
 % \figrule
 \end{figure}
 
-\begin{figure} % \figrule
-\flushleft
-$\boxed{\matchesvk{A}{p}{\Gamma}}$
-\begin{mathpar}
-\inferrule[P-Var]
-  { }
-  {\matchesvk{A}{x}{x:A}}
-
-\inferrule[P-Data]
-  {k~\many{A} \in D~\many{R} \\
-   (\matchesvk{A_i}{p_i}{\Gamma})_i}
-  {\matchesvk{D~\many{R}}{k~\many{p}}{\many{\Gamma}}}
-\end{mathpar}
-$\boxed{\matchesck{T}{r}{\sigs}{\exists \kenva.\Gamma}}$
-\begin{mathpar}
-\inferrule[P-Value]
-  {\adjact{\sigs}{\adj}{\sigs'} \\ \matchesvk{A}{p}{\Gamma}}
-  {\matchesck{\effin{\adj}A}{p}{\sigs}{\Gamma}}
-
-\inferrule[P-CatchAll]
-  {\adjact{\sigs}{\adj}{\sigs'}}
-  {\matchesck{\effin{\adj}A}{\effin{x}}{\sigs}{x:{\thunk{\effout{\sigs'}A}}}}
-
-\inferrule[P-Command]
-  {
-   \adjact{\sigs}{\adj}{\sigs'} \\
-   \adj = \adapt\pipe\ext \\
-   c:\forall \many{Z}.\many{A \to} B \in \ext \\
-   (\matchesv{\kenv, \many{Z}}{A_i}{p_i}{\Gamma_i})_i}
-  {\matchesc{\kenv}
-            {\effin{\adj}B'}
-            {\effin{\handle{c~\many{p}}{z}}}
-            {\sigs}
-            {\exists \many{Z}.\many{\Gamma}, z:\{\effin{\id\pipe\id}B \to \effout{\sigs'}B'\}}}
-\end{mathpar}
-\caption{Pattern Matching Typing Rules}
-\label{fig:pattern-typing}
-%% \figrule
-\end{figure}
 
 
 \begin{figure}[t]
@@ -946,7 +735,7 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 \inferrule[B-Data]
   {k~\many{A} \in D~\many{R} \\
    (\bindsv{p_i}{A_i}{w_i}{\venv_i})_i}
-  {\bindsv{k~\many{p}}{D~\many{R}}{k~\many{w}}{\many{\venv}}}
+ {\bindsv{k~\many{p}}{D~\many{R}}{k~\many{w}}{\many{\venv}}}
 \end{mathpar}
 
 \caption{Pattern Binding}
@@ -960,8 +749,219 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 %% You can include appendices like this:
 \appendix
 
-\chapter{First appendix}
+\chapter{Remaining Formalisms}
 
+
+\begin{figure}%% \figrule
+\flushleft
+$\boxed{\adjact{\sigs}{\adj}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Adj]{\adjact{\sigs}{\adapt}{\sigs'} \\
+  \adjact{\sigs'}{\ext}{\sigs''}}
+          {\adjact{\sigs}{\adapt\pipe\ext}{\sigs''}}
+\end{mathpar}
+$\boxed{\adjact{\sigs}{\ext}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Ext-Id]{ }
+          {\adjact{\sigs}{\id}{\sigs}}
+
+\inferrule[A-Ext-Snoc]{\adjact{\sigs}{\ext}{\sigs'} }
+          {\adjact{\sigs}{\ext, \sig~\many{R}}{\sigs', \sig~\many{R}}}
+\end{mathpar}
+$\boxed{\adjact{\sigs}{\adapt}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Adapt-Id]{ }
+          {\adjact{\sigs}{\id}{\sigs}}
+
+\inferrule[A-Adapt-Snoc]{\adjact{\sigs}{\adapt}{\sigs'} \\
+    \adpcom{\sigs'}{\sig}{S}{S'}{\sigs''}}
+          {\adjact{\sigs}{\adapt, \sig(S \to S')}{\sigs''}}
+\end{mathpar}
+$\boxed{\adpcom{\sigs}{\sig}{S}{S'}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Adapt-Com]
+  {\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv} \\
+   \itrinst{\ienv}{S'}{\sig}{\ext} \\
+   \adjact{\sigs'}{\ext}{\sigs''}}
+  {\adpcom{\sigs}{\sig}{S}{S'}{\sigs''}}
+\end{mathpar}
+
+$\boxed{\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv}}$
+\begin{mathpar}
+\inferrule[I-Pat-Id]{ }
+          {\itrbnd{\sigs}{\pid}{\sig}{\sigs}{s : \sigs}}
+
+\inferrule[I-Pat-Bind]{\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv}}
+          {\itrbnd{\sigs,\sig~\many{R}}{S~a}{\sig}{\sigs'}
+            {\ienv,a:\sig~\many{R}}}
+
+\inferrule[I-Pat-Skip]{
+  \itrbnd{\sigs}{S~a}{\sig}{\sigs'}{\ienv} \\
+  \sig \neq \sig'}
+  {\itrbnd{\sigs,\sig'~\many{R}}{S~a}{\sig}
+          {\sigs',\sig'~\many{R}}{\ienv}}
+\end{mathpar}
+
+
+$\boxed{\itrinst{\ienv}{S}{\sig}{\ext}}$
+\begin{mathpar}
+\inferrule[I-Inst-Id]{s\in\meta{dom}(\ienv)}
+          {\itrinst{\ienv}{\pid}{\sig}{\id}}
+
+\inferrule[I-Inst-Lkp]{a\in\meta{dom}(\ienv) \\
+  \itrinst{\ienv}{S}{\sig}{\ext} \\
+  \ienv(a)=\sig~\many{R}}
+          {\itrinst{\ienv}{S~a}{\sig}{\ext,\sig~\many{R}}}
+\end{mathpar}
+%% \caption{Action of an Adaptor's Interface Component on an Ability}
+\label{fig:interface-components}
+
+
+
+\caption{Action of an Adjustment on an Ability and Auxiliary Judgements}
+\label{fig:act-adj}
+%% \figrule
+\end{figure}
+
+
+\begin{figure} % \figrule
+\flushleft
+
+\[
+\mathcal{X} ::= A \gor C \gor T \gor G \gor Z \gor R \gor P
+                  \gor \seed \gor \sigs \gor \ext \gor \adapt \gor \adj
+                  \gor \Gamma \gor \exists \kenva.\Gamma \gor \ienv
+\]
+
+$\boxed{\kindchecksk{\mathcal{X}}}$
+%% \boxed{\kindchecksk{C}}\boxed{\kindchecksk{T}}
+%% \boxed{\kindchecksk{G}}\boxed{\kindchecksk{Z}}\boxed{\kindchecksk{R}}\boxed{\kindchecksk{P}}
+%% \boxed{\kindchecksk{\seed}}\boxed{\kindchecksk{\sigs}}
+%% \boxed{\kindchecksk{\ext}}\boxed{\kindchecksk{\adapt}}\boxed{\kindchecksk{\adj}}
+%% \boxed{\kindchecksk{S}}\boxed{\kindchecksk{\Gamma}}\boxed{\kindchecksk{\ienv}}
+%% $
+\begin{mathpar}
+\inferrule[WF-Val]
+  { }
+  {\kindchecks{\kenv, X}{X}}
+
+\inferrule[WF-Eff]
+  { }
+  {\kindchecks{\kenv, [E]}{E}}
+
+\inferrule[WF-Poly]
+  {\kindchecks{\kenv, \many{Z}}{A}}
+  {\kindchecks{\kenv}{\forall \many{Z}.A}}
+\\
+\inferrule[WF-Data]
+  {(\kindchecksk{R})_i}
+  {\kindchecksk{D~\many{R}}}
+
+\inferrule[WF-Thunk]
+  {\kindchecksk{C}}
+  {\kindchecksk{\thunk{C}}}
+
+\inferrule[WF-Comp]
+  {(\kindchecksk{T})_i \\ \kindchecksk{G}}
+  {\kindchecksk{\many{T \to}~ G}}
+
+\inferrule[WF-Arg]
+  {\kindchecksk{\adj} \\ \kindchecksk{A}}
+  {\kindchecksk{\effin{\adj}A}}
+
+\inferrule[WF-Ret]
+  {\kindchecksk{\sigs} \\ \kindchecksk{A}}
+  {\kindchecksk{\effout{\sigs}A}}
+
+\inferrule[WF-Ability]
+  {\kindchecksk{\sigs}}
+  {\kindchecksk{[\sigs]}}
+
+\inferrule[WF-Pure]
+  { }
+  {\kindchecksk{\nowt}}
+
+\inferrule[WF-Id]
+  { }
+  {\kindchecksk{\id}}
+
+\inferrule[WF-Ext]
+  {\kindchecksk{\ext} \\ (\kindchecksk{R})_i}
+  {\kindchecksk{\ext, \sig~\many{R}}}
+
+\inferrule[WF-Adapt]
+  {\kindchecksk{\adapt}}
+  {\kindchecksk{\adapt, \sig~(S \to S')}}
+\\
+\inferrule[WF-Empty]
+  { }
+  {\kindchecksk{\cdot}}
+
+\inferrule[WF-Mono]
+  {\kindchecksk{\Gamma} \\ \kindchecksk{A}}
+  {\kindchecksk{\Gamma, x : A}}
+
+\inferrule[WF-Poly]
+  {\kindchecksk{\Gamma} \\ \kindchecksk{P}}
+  {\kindchecksk{\Gamma, f : P}}
+\\
+
+\inferrule[WF-Existential]
+  {\kindchecks{\kenv, \kenva}{\Gamma}}
+  {\kindchecksk{\exists \kenva.\Gamma}}
+
+\inferrule[WF-Interface]
+  {\kindchecksk{\ienv} \\ (\kindchecksk{R})_i}
+  {\kindchecksk{\ienv, x : \sig~\many{R}}}
+
+\end{mathpar}
+
+
+\caption{Well-Formedness Rules}
+\label{fig:well-formedness}
+
+% \figrule
+\end{figure}
+
+\begin{figure} % \figrule
+\flushleft
+$\boxed{\matchesvk{A}{p}{\Gamma}}$
+\begin{mathpar}
+\inferrule[P-Var]
+  { }
+  {\matchesvk{A}{x}{x:A}}
+
+\inferrule[P-Data]
+  {k~\many{A} \in D~\many{R} \\
+   (\matchesvk{A_i}{p_i}{\Gamma})_i}
+  {\matchesvk{D~\many{R}}{k~\many{p}}{\many{\Gamma}}}
+\end{mathpar}
+$\boxed{\matchesck{T}{r}{\sigs}{\exists \kenva.\Gamma}}$
+\begin{mathpar}
+\inferrule[P-Value]
+  {\adjact{\sigs}{\adj}{\sigs'} \\ \matchesvk{A}{p}{\Gamma}}
+  {\matchesck{\effin{\adj}A}{p}{\sigs}{\Gamma}}
+
+\inferrule[P-CatchAll]
+  {\adjact{\sigs}{\adj}{\sigs'}}
+  {\matchesck{\effin{\adj}A}{\effin{x}}{\sigs}{x:{\thunk{\effout{\sigs'}A}}}}
+
+\inferrule[P-Command]
+  {
+   \adjact{\sigs}{\adj}{\sigs'} \\
+   \adj = \adapt\pipe\ext \\
+   c:\forall \many{Z}.\many{A \to} B \in \ext \\
+   (\matchesv{\kenv, \many{Z}}{A_i}{p_i}{\Gamma_i})_i}
+  {\matchesc{\kenv}
+            {\effin{\adj}B'}
+            {\effin{\handle{c~\many{p}}{z}}}
+            {\sigs}
+            {\exists \many{Z}.\many{\Gamma}, z:\{\effin{\id\pipe\id}B \to \effout{\sigs'}B'\}}}
+\end{mathpar}
+\caption{Pattern Matching Typing Rules}
+\label{fig:pattern-typing}
+%% \figrule
+\end{figure}
 
 % \section{First section}
 % 
