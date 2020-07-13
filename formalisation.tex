@@ -45,6 +45,10 @@
 \newtheorem{lemma}[theorem]{Lemma}
 \newtheorem{corollary}[theorem]{Corollary}
 
+
+%% abstract for inline code
+\newcommand{\code}[1]{\lstinline{#1}}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -386,7 +390,7 @@ Formal development of Frank.
 \end{preliminary}
 
 
-\chapter{Introduction}
+\chapter{Formalisation of Frank}
 
 
 \begin{figure}  %\figrule
@@ -683,7 +687,7 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 
 
 \begin{figure}[t]
-\figrule
+%% \figrule
 \flushleft
 %\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
 %amb. $\venv$ and binds $\venv$.}
@@ -740,13 +744,160 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 
 \caption{Pattern Binding}
 \label{fig:pattern-binding}
-\figrule\end{figure}
+%% \figrule
+\end{figure}
+
+
+
+\chapter{Arbitrary Thread Interruption}
+
+\section{Motivation}
+
+One important part of our asynchronous effect handling system is the ability to
+interrupt arbitrary computations. This is essential for pre-emptive concurrency,
+which relies on being able to suspend computations for resumption later.
+
+%% Consider the following program;
+
+%% \begin{lstlisting}
+%% interface Stop = stop : Unit
+
+%% interface Go = go : Unit
+
+%% suspend : {<Stop, Go>Unit -> Unit -> Maybe {Unit} -> Unit}
+%% suspend <stop -> k> <cont> _ =
+%%     suspend (k unit) unit (just cont)
+%% suspend <go -> k>   _      (just c)   =
+%%     suspend (k unit) c! nothing
+
+%% \end{lstlisting}
+
+%% \noindent Here the first argument to \lstinline{suspend} performs
+%% \lstinline{stop} and \lstinline{go} operations, which control the execution of
+%% the second thread.
+
+For instance, consider the two programs below;
+
+\begin{lstlisting}
+  controller : {[Stop, Go, Console] Unit}
+  controller! = go!; stop!; print ``stop 1'';
+                go!; stop!; print ``stop 2'';
+                go!; stop!; print ``stop 3''
+
+  runner : {[Console] Unit}
+  runner! = print ``1 ``; print ``2 ``; print ``3 '';
+\end{lstlisting}
+
+\noindent We ideally want a multihandler that can run these two programs in
+parallel, such that the result will be \code{1 stop 1 2 stop 2 3 stop 3};
+that is to say, the \code{stop} and \code{go} operations from
+
+\section{Interruption with Yields}
+
+One way we can get this behaviour is using the \code{Yield} interface. This
+offers a single operation, \code{yield : Unit}. With this, we can write a
+multihandler \code{suspend};
+
+\begin{lstlisting}
+runner : {[Console, Yield] Unit}
+runner! = print "1 "; yield!; print "2 "; yield!; print "3 "; yield!
+
+suspend : {<Yield> Unit -> <Stop, Go> Unit -> Maybe {[Console, Yield] Unit} -> [Console] Unit}
+suspend <yield -> k> <stop -> l> _ = suspend unit (l unit) (just {k unit})
+suspend <k>          <go -> l> (just res) = suspend (res!) (l unit) nothing
+suspend <yield -> k> <m> maybe = suspend (k unit) m! maybe
+suspend unit _ _ = unit
+suspend _ unit _ = unit
+\end{lstlisting}
+
+\todo{Maybe make more concise?}
+\todo{change to not be letter l cos it looks like a 1}
+
+\noindent Running \code{suspend runner! controller! nothing} then prints out
+\code{1 stop 1 2 stop 2 3 stop 3} as desired. So far so good; this works as
+planned. However, observe that we had to change the code of the original runner
+program to \code{yield} every time it prints. We would rather not have this
+requirement; the threads should be suspendable without knowing in advance they
+will be suspended, and thus without needing to explicitly \code{yield}.
+Furthermore, see that the \code{yield} operation adds no more information; it is
+just used as a placeholder operation; any operation would work. As such, we keep
+searching for a better solution.
+
+\section{Relaxing Catches}
+
+The key to this lies in the catchall pattern, $\effin{x}$, and the pattern
+binding rules of Figure \ref{fig:pattern-binding}.
+
+Recall that the catchall pattern $\effin{x}$ matches either a value --- e.g.
+\code{unit} --- or a command that is handled in the surrounding ability. For
+instance, the pattern \code{<k>} in the code above matches either \code{unit}
+or \code{<yield -> k>}. The variable \code{k} is then bound to
+whatever this match is, leaving the (potentially) invoked effect unhandled. This
+is expressed in the \textsc{B-CatchAll-Request} rule in Figure~\ref{fig:pattern-binding}.
+
+Important to note is that only effects that are handled in that position are
+able to be caught. \code{runner} also makes use of the \code{print} effect, but
+these are not able to be caught by the catchall command. Formally, this is due
+to the fourth requirement of \textsc{B-CatchAll-Request}; that the command $c$
+that is invoked is a member of $\ext$.
+
+\begin{figure}[t]
+%% \figrule
+\flushleft
+%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
+%amb. $\venv$ and binds $\venv$.}
+\begin{mathpar}
+
+\inferrule[B-CatchAll-Request-Loose]
+  {
+  \adjact{\sigs}{\adj}{\sigs'} \\
+  %% \EC \poised c \\\\
+  %% \adj = \adapt\pipe\ext \\
+  %% c : \forall \many{Z}. \many{B \to}~B' \in \ext
+  }
+  {\bindsc{\effin{x}}{\effin{\adj}A}
+  {\freeze{\EC[c~\many{R}~\many{w}]}}
+  {\sigs}
+  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+
+\end{mathpar}
+
+\caption{Updated \textsc{B-CatchAll-Request}}
+\label{fig:loose-catchall-request}
+%% \figrule
+\end{figure}
+
+As such, we propose to remove this constraint from \textsc{B-CatchAll-Request}.
+The resulting rule can then be seen in Figure~\ref{fig:loose-catchall-request}.
+This lets us update the previous \code{suspend} code to the following, which
+yields the same results as last time;
+
+\begin{lstlisting}
+runner : {[Console] Unit}
+runner! = print "1 "; print "2 "; print "3 "
+
+suspend : {Unit -> <Stop, Go> Unit -> Maybe {[Console] Unit} -> [Console] Unit}
+suspend <k> <stop -> l> _          = suspend unit   (l unit) (just {k unit})
+suspend <k> <go -> l>   (just res) = suspend (res!) (l unit) nothing
+suspend unit _ _ = unit
+suspend _ unit _ = unit
+\end{lstlisting}
+
+\todo{ Verify that this particular example really works. }
+
+\noindent Why does this work? \todo{explain}
 
 
 %% \bibliographystyle{plain}
 %% \bibliography{mybibfile}
 
 %% You can include appendices like this:
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% APPENDIX
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 \appendix
 
 \chapter{Remaining Formalisms}
