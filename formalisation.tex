@@ -60,7 +60,7 @@
   \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}
     {\textbf{TODO:} #1}}}}
 
-\newcommand{\interrupt}[1]{!\(#1\)}
+\newcommand{\interrupt}[1]{!(#1)}
 
 \newcommand{\fighead}{\textbf}
 
@@ -752,6 +752,7 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 \chapter{Arbitrary Thread Interruption}
 
 \section{Motivation}
+\label{sec:interrupt-motivation}
 
 One important part of our asynchronous effect handling system is the ability to
 interrupt arbitrary computations. This is essential for pre-emptive concurrency,
@@ -898,11 +899,11 @@ As such, we need to further change the pattern binding rules of Figure
 \ref{fig:pattern-binding}. This is to let us interrupt arbitrary computation
 terms. In Figure \ref{fig:runtime-syntax-updated}, we see an updated version of
 the runtime syntax; this allows for the suspension of arbitrary \emph{uses},
-being function applications and constructions \todo{verify that uses are
-  ``just'' these}.
+being function applications and constructions.
 
-With this in mind, we now give the
+\todo{verify that uses are ``just'' apps and constructions}
 
+\todo{Do we need to add interrupts to evaluation frames?}
 
 \begin{figure}[t]
 %% \figrule
@@ -928,16 +929,105 @@ With this in mind, we now give the
 %% \figrule
 \end{figure}
 
+With this in mind, we now give the updated rule for the catchall pattern
+matching on interrupted terms (denoted $\interrupt{m}$). This can be seen in
+Figure \ref{fig:catchall-interrupt}. It expresses that an arbitrary suspended
+\emph{use} can be matched against the computation pattern $\effin{x}$. The suspended
+computation $\thunk{m}$ is then bound to $x$, in a similar way to other
+\textsc{B-CatchAll} rules.
+
+\begin{figure}[t]
+%% \figrule
+\flushleft
+%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
+%amb. $\venv$ and binds $\venv$.}
+\begin{mathpar}
+\inferrule[B-CatchAll-Interrupt]
+  {\adjact{\sigs}{\adj}{\sigs'}}
+  {\bindsc{\effin{x}}{\effin{\adj}A}{\interrupt{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+\end{mathpar}
+
+\caption{Catching Interrupts rule. }
+\label{fig:catchall-interrupt}
+%% \figrule
+\end{figure}
+
+%% We also need to supplement the operational semantics of Figure
+%% \ref{fig:small-step} with a rule for a use $m$ becoming interrupted. This extra
+%% required rule can be seen in
+
+Figure~\ref{fig:r-interrupt} shows how uses $m$ become interrupted. This rule
+supplements the operational semantics of Figure~\ref{fig:small-step}.
+
+\todo{Check that just uses is enough}
+
+\todo{Talk about how this achieves our goal. }
+
+The addition of this rule introduces non-determinism into the language; at any
+point, a use can either step as normal (e.g. through the \textsc{R-Handle}
+rule), or it can be interrupted. An interrupted term $\interrupt{m}$ can no
+longer reduce; it is blocked until it is resumed by the \textsc{R-Handle} rule.
+
+\todo{Talk about non-determinism as a result of this}
+\todo{Maybe move non-determinism to the next section?}
 
 
+\begin{figure}[t]
+%% \figrule
+\flushleft
+%% $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+%%     \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+%% \\
+\inferrule[R-Interrupt]
+  %% {m \redtou m'}
+  { }
+  %% {\EC[m] \stepstou \EC[m']}
+  {m \redtou \interrupt{m}}
+%% \\
+\end{mathpar}
 
+\caption{Use interruption rule}
+\label{fig:r-interrupt}
+%% \figrule
+\end{figure}
 
+\section{Interrupting In Practice}
 
+Due to the non-determinism introduced by \textsc{R-Interrupt}, this system is
+difficult to implement; how do we choose whether to apply a handler to its
+arguments or to just interrupt it?
 
+In our implementation of this system, we instead maintain a counter which is
+incremented every time a handler is evaluated. When the counter reaches a
+certain threshold value $t$, we interrupt the current term $m$, applying the
+\textsf{R-Interrupt} rule. This converts the non-deterministic system to a
+deterministic one; we never have any question of \emph{what} to do.
 
+Observe that the process of interrupting a computation is a familiar one; we
+stop computing and offer up the continuation to the programmer. Where is a
+similar control flow already around? That's right --- invocation of an effect.
 
+\todo{Rewrite above paragraph to be less camp}
 
+As such, we can just use a normal effect to perform the interruption. Sticking
+with previous themes, we choose to invoke a \code{yield} effect when
+interrupting. This lets the programmer choose to handle the effect as they wish.
+Note that now interrupts are not restricted to the catch-all pattern $\effin{m}$
+but are normal computation patterns.
 
+These \code{yield} effects are only inserted in a computation when the
+\code{Yield} interface is present in the ability of this computation. This is
+important, as it lets the programmer get fine-grained control over which
+computations can be interrupted and which cannot. Consider the example in
+Section~\ref{sec:interrupt-motivation}; we want the \code{runner} computation to
+be controller by the \code{controller}. As such, we want the \code{runner} to be
+interruptible, whilst the \code{controller} is not. We can reflect this by
+adding the \code{Yield} interface to the ability of the former computation.
+
+Thus our example from before becomes;
+
+\todo{updated example}
 
 %% \bibliographystyle{plain}
 %% \bibliography{mybibfile}
