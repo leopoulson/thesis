@@ -11,6 +11,36 @@
 \usepackage{flushend}
 \usepackage{listings}
 
+%% \usepackage{beramono}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+%% \lstdefinestyle{mystyle}{
+%%     %% backgroundcolor=\color{backcolour},
+%%     %% commentstyle=\color{codegreen},
+%%     %% keywordstyle=\color{magenta},
+%%     %% numberstyle=\tiny\color{codegray},
+%%     %% stringstyle=\color{codepurple},
+%%     breakatwhitespace=false,
+%%     breaklines=true,
+%%     captionpos=b,
+%%     keepspaces=true,
+%%     %% numbers=left,
+%%     %% numbersep=5pt,
+%%     showspaces=false,
+%%     showstringspaces=false,
+%%     showtabs=false,
+%%     tabsize=2,
+%%     %% basicstyle=\small\ttfamily
+%%     basicstyle=\ttfamily\footnotesize,
+%%     %% breaklines=true
+%% }
+
+%% \lstset{style=mystyle}
+
 \lstset{
   basicstyle=\small\ttfamily,
   breaklines=true
@@ -48,6 +78,7 @@
 
 %% abstract for inline code
 \newcommand{\code}[1]{\lstinline{#1}}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
@@ -389,6 +420,234 @@ Formal development of Frank.
 
 \end{preliminary}
 
+\chapter{Programming in Frank}
+
+\section{Effects and Effect Handling}
+
+\paragraph*{Interfaces and Operations}
+
+Frank encapsulates effects through \emph{interfaces}, which offer
+\emph{commands}. For instance, the \code{State} effect (interface) offers two
+operations (commands), \code{get} and \code{put}. In Frank, this translates to
+
+\begin{lstlisting}
+  interface State X = get : X
+                    | put : X -> Unit
+\end{lstlisting}
+
+The type signatures of the operations mean that \code{get} is a 0-ary operation
+which is \emph{resumed} with a value of type \code{X}, and \code{put} takes a value of
+type \code{X} and is resumed with \code{unit}. Programs get access to an interface's
+command by including them in the \emph{ability} of the program. Commands are
+invoked just as normal functions;
+
+\begin{lstlisting}
+  xplusplus : {[State Int] Unit}
+  xplusplus! = let x = get! in put (x + 1)
+\end{lstlisting}
+
+\noindent This familiar program increments the integer in the state by 1.
+
+\paragraph*{Handling Operations}
+
+Traditioanl functions in Frank are a specialisation of Frank's handlers; that is
+to say, functions are handlers that handle no effects. A handler for an
+interface pattern matches \emph{on the operations} that are invoked, as well as
+on the \emph{values} that the computation can return. Furthermore, the handler
+gets access to the \emph{continuation} of the calling function as a first-class
+value. Consider the handler for \code{State};
+
+\begin{lstlisting}
+  runState : {<State S> X -> S -> X}
+  runState <get -> k>   s = runState (k s) s
+  runState <put s -> k> _ = runState (k unit) s
+  runState x            _ = x
+\end{lstlisting}
+
+\noindent The type of \code{runState} expresses that the first argument is a
+computation that can perform \code{State S} effects and will eventually return a
+value of type \code{X}, whilst the second argument is a value of type \code{S}.
+%could remove this below line...
+The \code{State S} effect is then \emph{removed} from the first argument.
+
+What happens when we run \code{runState xplusplus! 0}?
+
+%% Frank's realisation of effects is through \emph{interfaces} which offer
+%% \emph{commands}. For instance, the \code{State} effect (interface) offers two
+%% operations (commands), \code{get} and \code{put}. In Frank, this translates to
+
+%% \begin{lstlisting}
+%%   interface State X = get : X
+%%                     | put : X -> Unit
+%% \end{lstlisting}
+
+%% The type signatures of the operations mean that \code{get!}, when handled, will
+%% be a value of type \code{X}, whilst \code{put x} once handled will be a value of
+%% type \code{Unit}.
+
+%% \code{get} and \code{put} are given meaning by defining a \emph{handler} for the
+%% \code{State} interface. Handlers in Frank are very simple things; they take as
+%% argument a computation that can perform effects. The handlers then pattern match
+%% \emph{on the operations} that are invoked, as well as on the \emph{values} that the
+%% computation can return. What makes effects not just a special kind of value is
+%% that they also offer the \emph{continuation} of the caller as a first-class
+%% value.
+
+%% Here we display the handler for \code{State};
+
+%% \begin{lstlisting}
+%%   runState : {<State X> Y -> X -> Y}
+%%   runState <get -> k>   s = runState (k s) s
+%%   runState <put s -> k> _ = runState (k unit) s
+%%   runState y            _ = y
+%% \end{lstlisting}
+
+
+\section{Concurrency}
+\label{sec:concurrency}
+
+Frank is a single-threaded language. It is fortunate, then, that effect handlers
+give us a malleable way to run multiple program-threads ``simultaneously'' \todo
+{This is poorly written --- fix}.
+
+This is because the invocation of an operation not only offers up the
+operation's payload, but also the \emph{continuation} of the calling
+computation. The handler for this operation is then free to do what it pleases
+with the continuation. For many effects, such as \code{getState}, nothing
+interesting happens to the continuation; in the case of \code{getState}, it is
+resumed with the value in state. But these continuations are first-class; they
+can resumed, sure, but also stored elsewhere or even thrown away. As such, by
+handling \code{Yield} operations, we easily pause and switch between several
+threads.
+
+\subsection{Simple Scheduling}
+
+We introduce some simple program threads and some scheduling multihandlers, to
+demonstrate how subtly different handlers generate different scheduling
+strategies.
+
+\begin{lstlisting}
+interface Yield = yield : Unit
+
+words : {[Console, Yield] Unit}
+words! = print "one "; yield!; print "two "; yield!; print "three "; yield!
+
+numbers : {[Console, Yield] Unit}
+numbers! = print "1 "; yield!; print "2 "; yield!; print "3 "; yield!
+\end{lstlisting}
+
+First note the simplicity of the \code{Yield} interface; we have one operation
+supported, which looks very boring; the operation \code{yield!} will just return
+unit --- of course, it is the way we \emph{handle} yield that is more
+interesting.
+
+\begin{lstlisting}
+-- Runs all of the LHS first, then the RHS.
+scheduleA : {<Yield> Unit -> <Yield> Unit -> Unit}
+scheduleA <yield -> m> <n> = scheduleA (m unit) n!
+scheduleA <m> <yield -> n> = scheduleA m! (n unit)
+scheduleA _ _ = unit
+
+-- Lets two yields synchronise, then handles both
+scheduleB : {<Yield> Unit -> <Yield> Unit -> Unit}
+scheduleB <yield -> m> <yield -> n> = scheduleB (m unit) (n unit)
+scheduleB <yield -> m> <n> = scheduleB (m unit) n!
+scheduleB <m> <yield -> n> = scheduleB m! (n unit)
+scheduleB _ _ = unit
+\end{lstlisting}
+
+\todo{Can maybe delete the 2nd and 3rd matches of scheduleB to make the point
+  more clear?}
+
+We see two multihandlers above. Each take two \code{yield}ing threads and
+schedule them, letting one run at a time. \code{scheduleA} runs the first thread
+to completion, and only then runs the second one; the first time that the second
+thread \code{yield}s it is \emph{blocked}, and can no longer execute. As such,
+the output of \code{scheduleA words! numbers!} is \code{one 1 two three 2 3
+  unit}.
+
+\code{scheduleB} is fairer and more profound. We run \code{scheduleB words!
+  number!} and receive \code{one 1 two 2 three 3 unit}; \code{scheduleB} is fair
+and will ``match'' the yields together. We step through slowly. First
+\code{words!} will print \code{one}, then it will \code{yield}. At this point
+--- recalling that multihandlers pattern match left-to-right --- the second
+thread, \code{numbers!}, is allowed to execute. In the meantime, \code{words!}
+is stuck as \code{<yield -> m>}; it cannot evaluate any further, it is
+\emph{blocked}. Whilst \code{words} is blocked \code{numbers!} prints \code{1}
+and then \code{yield}s. Great; now the first case matches. Both threads are
+resumed and the process repeats itself.
+
+\todo{ The second paragraph here is a more compelling explanation; maybe we can
+  just get rid of all of the scheduleA business and /just/ have the scheduleB
+  stuff? scheduleA is quite obvious i think whilst B is more subtle and compelling. }
+
+\todo{ It's not true that it matches L-R as much as runs all computations L - R
+  until they are all a command / value - fix this }
+
+\subsection{Forking New Processes}
+
+We can make use of Frank's higher-order effects to dynamically create new
+threads at runtime. We strengthen the \code{Yield} interface by adding a new
+operation \code{fork};
+
+\begin{lstlisting}
+  interface Co = fork : {[Co] Unit} -> Unit
+               | yield : Unit
+               | exit : Unit
+\end{lstlisting}
+
+The type of \code{fork} expresses that \code{fork} takes a suspended computation
+that can perform further \code{Co} effects, and returns unit when handled. We
+can now run programs that allocate new threads at runtime, such as the below
+
+\begin{lstlisting}
+forker : {[Console, Co [Console]] Unit}
+forker! = print "Starting! ";
+          fork {print "one "; yield!; print "two "};
+          fork {print "1 "; yield!; print "2 "};
+          exit!
+\end{lstlisting}
+
+We can now choose a strategy for handling \code{fork} operations; we can either
+lazily run them, by finishing executing the current thread, or eagerly run them,
+suspending the currently executing thread and running the forked process. The
+handler for the former, breadth-first style of scheduling, is
+
+\begin{lstlisting}
+scheduleBF : {<Co> Unit -> [Queue Proc] Unit}
+scheduleBF <fork p -> k> =
+    enqueue (proc {scheduleBF (<Queue> p!)});
+    scheduleBF (k unit)
+scheduleBF <yield -> k> =
+    enqueue (proc {scheduleBF (k unit)});
+    runNext!
+scheduleBF <exit -> _> =
+    runNext!
+scheduleBF unit =
+    runNext!
+\end{lstlisting}
+
+Notice the use of the \code{Queue} effect; we have to handle the computation
+\code{scheduleBF forker!} with a handler for \code{Queue} effects afterwards.
+Moreover, notice how concisely we can express the scheduler; this is due to the
+handler having access to te continuation of the caller, and treating it as a
+first-class object that can be stored elsewhere. We can see a diagram of how
+\code{scheduleBF} treats continuations in Figure \ref{fig:scheduleBF}, and a
+similar diagram of how the depth-first handling differs in Figure \ref{fig:scheduleDF}.
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}
+    \includegraphics[width=0.8\textwidth]{imgs/scheduleBF.png}
+    \caption{Breadth-First scheduling}
+    \label{fig:scheduleBF}
+  \end{subfigure}
+  \begin{subfigure}
+    \includegraphics[width=0.8\textwidth]{imgs/scheduleDF.png}
+    \caption{Depth-First scheduling}
+    \label{fig:scheduleDF}
+  \end{subfigure}
+\end{figure}
 
 \chapter{Formalisation of Frank}
 
@@ -410,9 +669,9 @@ Formal development of Frank.
   \slab{type binders}          & Z      &::= & X \gor [E]\\
   \slab{type arguments}        & R      &::= & A \gor [\Sigma]\\
   \slab{polytypes}             & P      &::= & \forall \overline{Z}.A \\
-%% \end{syn}
-%% &
-%% \begin{syn}
+\end{syn}
+&
+\begin{syn}
   \slab{interfaces}           & I \\
   \slab{term variables}       & x, y, z, f \\
   \slab{instance variables}   & \pid, a, b, c \\
@@ -755,8 +1014,10 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 \label{sec:interrupt-motivation}
 
 One important part of our asynchronous effect handling system is the ability to
-interrupt arbitrary computations. This is essential for pre-emptive concurrency,
-which relies on being able to suspend computations for resumption later.
+interrupt arbitrary computations.
+%
+This is essential for pre-emptive concurrency, which relies on being able to
+suspend a computation \emph{without} the computation yielding.
 
 %% Consider the following program;
 
@@ -781,17 +1042,18 @@ For instance, consider the two programs below;
 
 \begin{lstlisting}
   controller : {[Stop, Go, Console] Unit}
-  controller! = go!; stop!; print ``stop 1'';
-                go!; stop!; print ``stop 2'';
-                go!; stop!; print ``stop 3''
+  controller! = go!; stop!; print ``stop '';
+                go!; stop!; print ``stop '';
+                go!; stop!; print ``stop ''
 
   runner : {[Console] Unit}
   runner! = print ``1 ``; print ``2 ``; print ``3 '';
 \end{lstlisting}
 
 \noindent We ideally want a multihandler that can run these two programs in
-parallel, such that the result will be \code{1 stop 1 2 stop 2 3 stop 3};
-that is to say, the \code{stop} and \code{go} operations from
+parallel, such that the result will be \code{1 stop 2 stop 3 stop};
+that is to say, the \code{stop} and \code{go} operations from \code{controller}
+can control the execution of \code{runner}.
 
 \section{Interruption with Yields}
 
@@ -844,7 +1106,8 @@ that is invoked is a member of $\ext$.
 
 \begin{figure}[t]
 %% \figrule
-\flushleft
+%% \flushleft
+%% \centering
 %\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
 %amb. $\venv$ and binds $\venv$.}
 \begin{mathpar}
@@ -887,6 +1150,9 @@ suspend _ unit _ = unit
 \todo{ Verify that this particular example really works. }
 
 \noindent Why does this work? \todo{explain}
+
+\todo{Talk about how this still maintains the ``no-snooping'' policy; we can't
+  inspect or access the effects that are invoked, but we know they happen.}
 
 \section{Interrupting Arbitrary Terms}
 
@@ -952,12 +1218,33 @@ computation $\thunk{m}$ is then bound to $x$, in a similar way to other
 %% \figrule
 \end{figure}
 
+\begin{figure}[t]
+%% \figrule
+\flushleft
+\begin{mathpar}
+%% \\
+\inferrule[R-Interrupt]
+  { }
+  {m \redtou \interrupt{m}}
+%% \\
+\end{mathpar}
+
+\caption{Use interruption rule}
+\label{fig:r-interrupt}
+%% \figrule
+\end{figure}
+
 %% We also need to supplement the operational semantics of Figure
 %% \ref{fig:small-step} with a rule for a use $m$ becoming interrupted. This extra
 %% required rule can be seen in
 
 Figure~\ref{fig:r-interrupt} shows how uses $m$ become interrupted. This rule
-supplements the operational semantics of Figure~\ref{fig:small-step}.
+supplements the operational semantics of Figure~\ref{fig:small-step}. It
+states that at any point, a use term can reduce to the same term but suspended.
+At this point, the term cannot reduce any further; observe that $\interrupt{ }$
+is not an evaluation context. The term then blocks until it is handled away.
+Note how similar this is to regular command invocations, which block until their
+continuation is invoked.
 
 \todo{Check that just uses is enough}
 
@@ -972,25 +1259,6 @@ longer reduce; it is blocked until it is resumed by the \textsc{R-Handle} rule.
 \todo{Maybe move non-determinism to the next section?}
 
 
-\begin{figure}[t]
-%% \figrule
-\flushleft
-%% $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
-%%     \stepstou m'} \quad \boxed{n \stepstoc n'}$
-\begin{mathpar}
-%% \\
-\inferrule[R-Interrupt]
-  %% {m \redtou m'}
-  { }
-  %% {\EC[m] \stepstou \EC[m']}
-  {m \redtou \interrupt{m}}
-%% \\
-\end{mathpar}
-
-\caption{Use interruption rule}
-\label{fig:r-interrupt}
-%% \figrule
-\end{figure}
 
 \section{Interrupting In Practice}
 
