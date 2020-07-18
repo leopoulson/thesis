@@ -1,0 +1,1281 @@
+\documentclass[msc,deptreport,cs]{infthesis} % Do not change except to add your degree (see above).
+
+%% Imports poached from frankly
+%% STILL can't find what makes \figrule work
+\usepackage{natbib}
+\usepackage{mathpartir}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{thmtools,thm-restate}
+\usepackage{comment}
+\usepackage{flushend}
+\usepackage{listings}
+
+%% \usepackage{beramono}
+
+
+%% \lstdefinestyle{mystyle}{
+%%     %% backgroundcolor=\color{backcolour},
+%%     %% commentstyle=\color{codegreen},
+%%     %% keywordstyle=\color{magenta},
+%%     %% numberstyle=\tiny\color{codegray},
+%%     %% stringstyle=\color{codepurple},
+%%     breakatwhitespace=false,
+%%     breaklines=true,
+%%     captionpos=b,
+%%     keepspaces=true,
+%%     %% numbers=left,
+%%     %% numbersep=5pt,
+%%     showspaces=false,
+%%     showstringspaces=false,
+%%     showtabs=false,
+%%     tabsize=2,
+%%     %% basicstyle=\small\ttfamily
+%%     basicstyle=\ttfamily\footnotesize,
+%%     %% breaklines=true
+%% }
+
+%% \lstset{style=mystyle}
+
+\lstset{
+  basicstyle=\small\ttfamily,
+  breaklines=true
+}
+
+\usepackage{stmaryrd}
+\usepackage{natbib}
+\usepackage{xspace}
+%% \usepackage[pdftex,
+%%             pdfauthor={Sam Lindley, Conor McBride, and Craig McLauglin},
+%%             pdftitle={Doo bee doo bee doo}]{hyperref}
+%\hypersetup{colorlinks=true,citecolor=blue,linkcolor=blue}
+%% \hypersetup{colorlinks=true,allcolors=black}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{url}
+
+% get rid of hypertext link on \citeauthor
+\usepackage{etoolbox}
+
+\usepackage{amssymb}
+
+\usepackage{mathtools} % allows flush-left align environments and paired
+                       % delimiters.
+                       %
+
+
+% Theorem environments
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{prop}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+
+%% abstract for inline code
+\newcommand{\code}[1]{\lstinline{#1}}
+
+\newcommand{\hl}[1]{\colorbox{lightgray}{#1}}
+
+\usepackage{xcolor}
+
+\newcommand{\highlight}[1]{%
+  \colorbox{red!50}{$\displaystyle#1$}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Start of inference rules typesetting business
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+
+\newcommand{\todo}[1]
+           {{\par\noindent\small\color{RoyalPurple}
+  \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}
+    {\textbf{TODO:} #1}}}}
+
+\newcommand{\interrupt}[1]{!(#1)}
+
+\newcommand{\fighead}{\textbf}
+
+\newcommand{\lameff}{$\lambda_{\text{eff}}$\xspace}
+\newcommand{\lameffrow}{$\lambda_{\text{eff}}^\rho$\xspace}
+\newcommand{\feff}{$F_\textrm{eff}$\xspace}
+\newcommand{\impeff}{Implicit \lameff}
+\newcommand\Frank{\emph{Frank}\xspace}
+
+\newcommand\Cse{\textbf{Case}}
+
+\newcommand{\set}[1]{\{#1\}}
+\newcommand{\many}{\overline}
+\newcommand{\opt}[1]{#1^?}
+\newcommand{\medvert}{\mid}
+
+\newcommand{\sem}[1]{\llbracket{#1}\rrbracket}
+\newcommand{\seml}{\left\llbracket}
+\newcommand{\semr}{\right\rrbracket}
+
+\newcommand{\mdo}{~\textbf{do}~}
+\newcommand{\seq}{~\textbf{;}~}
+\newcommand{\assn}[2]{{#1}~\leftarrow~{#2}}
+\newcommand{\func}[2]{\text{#1}~{#2}}
+
+\newcommand{\deno}[1]{\sem{#1}\rho}
+\newcommand{\denoex}[2]{\sem{#1}#2}
+\newcommand{\pc}[1]{\llparenthesis{#1}\rrparenthesis}
+
+\newcommand{\TyVar}{\mathit{Var}}
+\newcommand{\dom}{\mathit{dom}}
+%\newcommand{\sub}{\subseteq}
+\newcommand{\Star}{{\Large$\star$}}
+
+\newcommand{\reducesto}{\longrightarrow}
+
+\newcommand\ba{\begin{array}}
+\newcommand\ea{\end{array}}
+
+\newcommand{\bl}{\ba[t]{@{}l@{}}}
+\newcommand{\el}{\ea}
+
+\newcommand{\bstack}{\begin{array}[t]{@{}l@{}}}
+\newcommand{\estack}{\end{array}}
+
+\newenvironment{equations}{\[\ba{@{}r@{~}c@{~}l@{}}}{\ea\]\ignorespacesafterend}
+\newenvironment{eqs}{\ba{@{}r@{~}c@{~}l@{}}}{\ea}
+
+\newenvironment{clauses}{\ba{@{}l@{~}c@{~}l@{}}}{\ea}
+
+\newenvironment{syn}{\ba{@{}l@{~}r@{~}c@{~}l@{}}}{\ea}
+
+\newenvironment{syntax}{\[\ba{@{}l@{~}r@{~}c@{~}l@{}}}{\ea\]\ignorespacesafterend}
+
+\newcommand{\judgeword}[1]{~\mathbf{#1}~}
+
+%\renewcommand{\sig}{\Sigma}
+%\renewcommand{\sigs}{\Sigma s}
+\newcommand{\sigentails}[1]{\mathbin{[{\text{\scriptsize ${#1}$}}]\hspace{-0.4ex}\text{-\!-}}\,}
+
+%% \newcommand{\sigmodels}[1]{\mathbin{[{\text{\scriptsize ${#1}$}}]\!\mathord{=}}\,}
+% \newcommand{\sigentails}[1]{\vdash_{#1}}
+
+\newcommand{\val}[3]  {#1 \vdash {#2} : {#3}}
+
+\newcommand{\rt}[1]{\langle{#1}\rangle}   % returner type
+
+\newcommand{\valg}{\val{\Gamma}}
+
+%% \newcommand{\is}[4]  {#1 \sigentails{#2} {#3} \judgeword{is} {#4}}
+%% \newcommand{\isgs}{\is{\Gamma}{\sigs}}
+
+%% \newcommand{\cdoes}[4]{#1 \sigentails{#2} {#3} \judgeword{has} {#4}
+%% \newcommand{\cdoesgs}{\cdoes{\Gamma}{\sigs}}
+
+
+%% some options for rendering bidirectional typing judgements
+
+%% \newcommand{\inferbase}[4]{#2 \mathbin{#1} {#3} \in {#4}}
+%% \newcommand{\checkbase}[4]{#2 \mathbin{#1} {#3} \ni {#4}}
+%% \newcommand{\patbase}[4]{{#3} \mathbin{:} {#2} \mathbin{#1} {#4}}
+
+\newcommand{\kindcheckbase}[3]{#2 \mathbin{#1} #3} % For well-kindedness of types
+\newcommand{\inferbase}[5]{#1; #3 \mathbin{#2} {#4} \Rightarrow {#5}}
+\newcommand{\checkbase}[5]{#1; #3 \mathbin{#2} #5 \mathbin{:} #4}
+\newcommand{\patbase}[5]{{#1} \vdash {#4} \mathbin{:} {#3} \mathbin{#2} {#5}}
+\newcommand{\bindbase}[4]{{#3} \mathbin{:} {#2} \mathbin{#1} {#4}}
+
+%% \newcommand{\inferbase}[4]{#2 \mathbin{#1} {#3} \Rightarrow {#4}}
+%% \newcommand{\checkbase}[4]{#2 \mathbin{#1} {#4} \Leftarrow {#3}}
+%% \newcommand{\patbase}[4]{{#3} \mathbin{:} {#2} \mathbin{#1} {#4}}
+
+%% \newcommand{\inferbase}[4]{#2 \mathbin{#1} {#3} \uparrow {#4}}
+%% \newcommand{\checkbase}[4]{#2 \mathbin{#1} {#4} \downarrow {#3}}
+%% \newcommand{\patbase}[4]{{#3} \mathbin{:} {#2} \mathbin{#1} {#4}}
+
+%% \newcommand{\inferbase}[4]{#2 \mathbin{#1} {#3} \judgeword{infers} {#4}}
+%% \newcommand{\checkbase}[4]{#2 \mathbin{#1} {#3} \judgeword{checks} {#4}}
+%% \newcommand{\patbase}[4]{{#2} \judgeword{matches} {#3} \mathbin{#1} #4}
+
+\newcommand{\makes}[5]{\inferbase{#1}{\sigentails{#3}}{#2}{#4}{#5}}
+\newcommand{\has}[5]{\checkbase{#1}{\sigentails{#3}}{#2}{#4}{#5}}
+\newcommand{\does}[4]{\checkbase{#1}{\vdash}{#2}{#3}{#4}}
+\newcommand{\can}[4]{\makes{\kenv}{#1}{#2}{#3}{#4}}
+
+\newcommand{\effs}[2]{{#1} \judgeword{does} {#2}}
+
+
+% redefinitions for cbv type system
+\newcommand{\kindchecks}[2]{\kindcheckbase{\vdash}{#1}{#2}} % Checks that a type is well-kinded
+\newcommand{\infers}{\makes}
+\newcommand{\checks}{\has}
+\newcommand{\checksdef}{\does}
+\newcommand{\matchesc}{\matches}
+\newcommand{\matchesck}{\matchesc{\kenv}}
+
+\newcommand{\infersk}{\makes{\kenv}}
+\newcommand{\checksk}{\has{\kenv}}
+\newcommand{\checksdefk}{\does{\kenv}}
+
+\newcommand{\kindchecksk}{\kindchecks{\kenv}} % Checks that a type is well-kinded
+\newcommand{\inferskgs}{\makes{\kenv}{\Gamma}{\sigs}}
+\newcommand{\checkskgs}{\has{\kenv}{\Gamma}{\sigs}}
+\newcommand{\checksdefkg}{\does{\kenv}{\Gamma}}
+
+
+\newcommand{\adj}{\Delta}
+\newcommand{\adapt}{\Theta}
+\newcommand{\ext}{\Xi}
+\newcommand{\sigs}{\Sigma}
+\newcommand{\sig}{I}
+
+\newcommand{\seed}{\sigma}
+
+\newcommand{\effbox}[1]{[#1]}
+
+\newcommand{\key}[1]{\mathbf{#1}} % keyword
+\newcommand{\var}{\mathit}        % local variable or meta variable
+\newcommand{\defaultvarname}[0]{x}
+
+\newcommand{\op}{\mathsf}  % operator (command or computation)
+\newcommand{\con}{\mathsf} % constructor (type or data)
+\newcommand{\inter}{\mathsf} % interface
+\newcommand{\str}[1]{\textrm{``#1''}} % string literal
+
+
+\newcommand{\handleSymbol}{\rightarrow}
+\newcommand{\handle}[2]{{#1} \handleSymbol {#2}}
+
+\newcommand{\thunk}[1]{\{{#1}\}}
+
+\newcommand{\force}[1]{{#1}!}
+
+\newcommand{\emptylist}{[]}
+\newcommand{\cons}{\mathbin{::}}
+\newcommand{\concat}{\,\texttt{++}\,} %mathbin{+\!+}}
+%\newcommand{\snoc}{\mathbin{:<}}
+\newcommand{\snoc}{\ }
+
+
+\newcommand{\NN}{\mathbb{N}}
+
+\newcommand{\slab}[1]{(\textrm{#1})}
+
+\newcommand{\ev}{E}
+\newcommand{\evd}{\varepsilon}
+
+\newcommand{\effin}[1]{\langle {#1} \rangle}
+\newcommand{\effout}[1]{[{#1}]}
+
+\newcommand{\nowt}{\emptyset}
+\newcommand{\id}{\iota}
+\newcommand{\pid}{\var{s}} % Pattern identity variable
+
+\newcommand{\EC}{\mathcal{E}}
+\newcommand{\EF}{\mathcal{F}}
+\newcommand{\PC}{\mathcal{P}} % Syntactic phrase class for af operation
+\newcommand{\venv}{\theta}
+
+\newcommand{\freeze}{\ceil}
+
+\newcommand{\uc}{\mathord{\downarrow}}
+\newcommand{\cu}{\mathord{\uparrow}}
+
+\newcommand{\redtou}{\leadsto_{\mathrm{u}}}
+\newcommand{\redtoc}{\leadsto_{\mathrm{c}}}
+\newcommand{\stepsto}{\longrightarrow}
+
+\newcommand{\stepstou}{\longrightarrow_{\mathrm{u}}}
+\newcommand{\stepstoc}{\longrightarrow_{\mathrm{c}}}
+
+\newcommand{\sigat}{\mathbin{@}}
+
+\newcommand{\meta}{\mathsf}
+\newcommand{\level}{\meta{level}}
+\newcommand{\af}{\meta{af}}
+\newcommand{\handles}{~\meta{handles}~}
+
+\newcommand{\poised}{~\meta{poisedfor}~}
+\newcommand{\insts}{\meta{inst}}
+\newcommand{\remap}{\meta{remap}}
+
+\newcommand{\sigyields}[1]
+           {\mathbin{\text{-\!-\!}[{\text{\scriptsize ${#1}$}}]\,}}
+
+\newcommand{\matches}[5]{\patbase{#1}{\sigyields{#4}}{#2}{#3}{#5}}
+\newcommand{\matchesv}[4]{\patbase{#1}{\dashv}{#2}{#3}{#4}}
+\newcommand{\matchesvk}{\matchesv{\kenv}}
+
+\newcommand{\bindsv}[4]{\bindbase{\dashv}{#2 \leftarrow #3}{#1}{#4}}
+\newcommand{\bindsc}[5]{\bindbase{\sigyields{#4}}{#2 \leftarrow #3}{#1}{#5}}
+
+\newcommand{\letin}[4][\defaultvarname]
+           {\key{let}\;{#1}:{#2}={#3}\;\key{in}\;{#4}}
+\newcommand{\letxin}[3][\defaultvarname]
+           {\key{let}\;{#1}={#2}\;\key{in}\;{#3}}
+\newcommand{\letrec}[4][f]{\key{letrec}~\many{{#1}:{#2} = {#3}}~\key{in}~{#4}}
+\newcommand{\letrecU}[3][f]{\key{letrec}~\many{{#1} = {#2}}~\key{in}~{#3}}
+\newcommand{\Gt}{\theta} % Substitution meta variable
+\newcommand{\submap}[2]{{{#1}\vDash{#2}}}
+\newcommand{\sub}[4]{#1 \vdash {{#2}:\submap{{#3}}{{#4}}}}
+\newcommand{\subk}{\sub{\kenv}}
+\newcommand{\subext}[2]{{{#1}{#2}}}
+\newcommand{\subst}[3][\defaultvarname]{{#2}[{#3}/{#1}]}
+
+% Frank letrec substitution
+\newcommand{\recsub}[5][f]
+      {[\many{\cu (\thunk{\many{\many{#2}\mapsto\letrec[{#1}]{#5}{#3}{#4}}}
+            : {#5})/{#1}}]}
+
+
+%%%% START inference rule system for action of adjustment on ability %%%%
+\newcommand{\semi}{;}
+\newcommand{\kenv}{\Phi}  % kind environment
+\newcommand{\kenva}{\Psi} % another kind environment
+%% \newcommand{\kenv}{\mathcal{T}} % kind environment
+\newcommand{\ienv}{\Omega} % Instance environment
+\newcommand{\adjact}[3]{{#1}\vdash{#2}\dashv{#3}}
+\newcommand{\adpcom}[5]{{{#1}\vdash{#2}({#3} \to {#4})\dashv{#5}}}
+\newcommand{\itrbnd}[5]{{{#1}\vdash{#2}:{#3}\dashv{#4}\semi{#5}}}
+% \newcommand{\wf}[2]{{{#1}\vdash{#2}}}
+\newcommand{\itrinst}[4]{{{#1}\vdash{#2}:{#3}\dashv{#4}}}
+
+%%% END inference rule system for action of adjustment on ability %%%%%
+
+% Untyped machine letrec substitution
+\newcommand{\recsubst}[5]
+ {{#1}[\many{(\thunk{\many{\many{#2} \mapsto \letrecU{#3}{#4}}}:{#5})/f}]}
+
+%% Abstract machine commands
+% Typing
+\newcommand{\HAbs}[2]{{{#1}\to{#2}}}
+
+\newcommand{\fail}{\textbf{fail}}
+
+%% Translation function: Frank Terms to Untyped A-Normal Form
+\newcommand{\UANF}[1]{{\llbracket{{#1}}\rrbracket}}
+
+% Terms
+\newcommand{\mtrns}[3][]{{#2} & \Rightarrow^{#1} & {#3}} % For array env
+\newcommand{\mtrnsR}[3][]{{#2}\Rightarrow^{#1}{#3}}
+
+\newcommand{\confg}[2]{{\langle{{#1}},{{#2}}\rangle}}
+\newcommand{\term}[3]
+           {{\langle{{#1}},{{#2}}\rangle\downarrow{#3}}}
+
+\newcommand{\admin}[2]{{\langle{{#1}}\mid{{#2}}\rangle}}
+\newcommand{\mat}[3]
+           {{\langle{{#1}}\mid{{#2}}\mid{{#3}}\rangle}}
+\newcommand{\matc}[5]
+        {{\langle{{#1}}\mid{{#2}}\mid{{#3}}\mid{{#4}}\mid{{#5}}\rangle}}
+
+\newcommand{\msub}[3][\defaultvarname]{{#2}[{#1}\mapsto{#3}]}
+
+\newcommand{\FHan}[4][\many{\effin{\adj}}]{{({#2}:{#1},{#3}\mid{#4})}}
+\newcommand{\FSeq}[2][\defaultvarname]
+           {{({#1}.{#2})}}
+\newcommand{\SCons}[2]{{{#1}\circ{#2}}}
+
+
+\newcommand{\HSHan}[5][C]{{{#2}\circ({#3},{#1},{#4}\mid{#5})}}
+\newcommand{\HSSeq}[4][\defaultvarname]
+           {{#2}\circ({#1}:{#3}.{#4})}
+\newcommand{\HSCons}[2]{{{#1}\circ{#2}}}
+\newcommand{\NF}[2]{{{#1}~\star~{#2}}}
+
+\newcommand{\evalto}{\Longrightarrow}
+
+
+\newcommand{\para}[1]{\paragraph{#1.}}
+
+\newcommand{\gor}{\mid}
+\newcommand{\pipe}{\texttt{|}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% End of inference rules typesetting business
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Start of main text
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+\begin{preliminary}
+
+\title{This is the Project Title}
+
+\author{Your Name}
+
+\abstract{
+Formal development of Frank.
+}
+
+\maketitle
+
+%% \section*{Acknowledgements}
+%% thanks to tony soprano
+
+%% \tableofcontents
+
+\end{preliminary}
+
+
+
+
+\chapter{Formalisation of Frank}
+
+
+\begin{figure}  %\figrule
+\[
+\ba{@{}c@{}}
+\ba{@{}c@{\quad\quad}c@{}}
+\begin{syn}
+  \slab{data types}            & D \\
+  \slab{value type variables}  & X \\
+  \slab{effect type variables} & E \\
+  \slab{value types}           & A, B   &::= & D~\overline{R} \\
+                               &        &\gor& \thunk{C} \gor X \\
+  \slab{computation types}     & C      &::= & \many{T \to}~G \\
+  \slab{argument types}        & T      &::= & \effin{\adj}A \\
+  \slab{return types}          & G      &::= & \effout{\sigs}A \\
+
+  \slab{type binders}          & Z      &::= & X \gor [E]\\
+  \slab{type arguments}        & R      &::= & A \gor [\Sigma]\\
+  \slab{polytypes}             & P      &::= & \forall \overline{Z}.A \\
+\end{syn}
+&
+\begin{syn}
+  \slab{interfaces}           & I \\
+  \slab{term variables}       & x, y, z, f \\
+  \slab{instance variables}   & \pid, a, b, c \\
+  \slab{seeds}                & \seed  &::= & \nowt \gor \ev \\
+  \slab{abilities}            & \sigs  &::= & \seed\pipe\ext \\
+  \slab{extensions}           & \ext   &::= & \id \gor \ext, \sig~\many{R} \\
+  \slab{adaptors}             & \adapt &::= & \id \gor \adapt, \sig(S \to S') \\
+  \slab{adjustments}          & \adj   &::= & \adapt\pipe\ext \\
+  \slab{instance patterns}    & S      &::= & \pid \gor S \snoc a \\
+  \slab{kind environments}    & \kenv,
+                                \kenva &::= & \cdot \gor \kenv, Z \\
+  \slab{type environments}    & \Gamma &::= & \cdot \gor \Gamma, x:A %\\
+%                              &        &    & \hphantom{\cdot}
+                                              \gor \Gamma, f:P\\
+ \slab{instance environments} & \ienv  &::= & \pid:\sigs \gor \ienv, a:\sig~\many{R}\\
+\end{syn} \\
+\ea \\
+\ea
+\]
+\\[0.25cm]
+
+\caption{Types}
+\label{fig:types}
+%\figrule
+\end{figure}
+
+
+
+
+\begin{figure} %\figrule
+\begin{syntax}
+  %% \slab{monomorphic term variables} & x, y, z \\
+  %% \slab{polymorphic term variables} & f \\
+  \slab{constructors}               & k \\
+  \slab{commands}                   & c \\
+  \slab{uses}                 & m      &::= &
+     x \gor f~\many{R} \gor m~\many{n} \gor \cu(n:A) \\
+  \slab{constructions}        & n      &::= &
+    \uc m \gor k~\many{n} \gor c~\many{R}~\many{n} \gor \thunk{e} \\
+                              &        &\gor& \key{let}~f : P = n~\key{in}~n'
+                                   \gor
+                                   \key{letrec}~\many{f : P = e}~\key{in}~n \\
+                              &        &\gor&  \effin{\adapt}~n \\
+  \slab{computations}         & e      &::=& \many{\many{r} \mapsto n}
+  \\
+  \slab{computation patterns} & r      &::=& p
+                                        \gor \effin{\handle{c~\many{p}\,}{z}}
+                                        \gor \effin{x} \\
+  \slab{value patterns}       & p      &::=& k~\many{p} \gor x        \\
+\end{syntax}
+\\[0.25cm]
+%\textit{with} term variables $x$, $y$, $z$, polymorphic term variables $f$, constructors $k$, commands $c$\\[0.25cm]
+\caption{Terms}
+\label{fig:terms}
+% \figrule
+\end{figure}
+
+
+
+\begin{figure} % \figrule
+\flushleft
+%% $\boxed{\kindchecksk{R}}$
+%% \begin{mathpar}
+%% \inferrule[K-Val]
+%%   {\TyVar(A) \subseteq \kenv}
+%%   {\kindchecksk{A}}
+
+%% \inferrule[K-Eff]
+%%   {\TyVar(\sigs) \subseteq \kenv}
+%%   {\kindchecksk{[\sigs]}}
+%% %
+%% \end{mathpar}
+
+$\boxed{\infersk{\Gamma}{\sigs}{m}{A}}$
+\begin{mathpar}
+\inferrule[T-Var]
+  {
+   x:A \in \Gamma}
+  {\inferskgs{x}{A}}
+
+\inferrule[T-PolyVar]
+  {% \kindchecks{\kenv, \many{Z}}{A}\\
+   \kindchecksk{\many{R}} \\
+   f:\forall \many{Z}.A \in \Gamma}
+  {\inferskgs{f~\many{R}}{A[\many{R}/\many{Z}]}}
+\\
+\inferrule[T-App]
+  {\sigs' = \sigs \\
+   (\adjact{\sigs}{\adj_i}{\sigs'_i})_i \\\\
+   \inferskgs{m}{\thunk{\many{\effin{\adj}A \to}~ \effout{\sigs'}B}} \\
+   (\checksk{\Gamma}{\sigs'_i}{A_i}{n_i})_i}
+  {\infersk{\Gamma}{\sigs}{m~\many{n}}{B}}
+
+\inferrule[T-Ascribe]
+  {\checkskgs{A}{n}}
+  {\inferskgs{\cu (n : A)}{A}}
+%
+\end{mathpar}
+
+$\boxed{\checksk{\Gamma}{\sigs}{A}{n}}$
+\begin{mathpar}
+\inferrule[T-Switch]
+  {\inferskgs{m}{A} \\ A = B}
+  {\checkskgs{B}{\uc m}}
+
+\inferrule[T-Data]
+  {%(\kindchecksk{R_i})_i\\
+   k~\many{A} \in D~\many{R} \\
+   (\checkskgs{A_j}{n_j})_j}
+  {\checkskgs{D~\many{R}}{k~\many{n}}}
+
+\inferrule[T-Command]
+  {\kindchecksk{\many{R}} \\
+   c : \forall \many{Z}.\many{A \to}~ B \in \sigs \\
+   (\checkskgs{A_j[\many{R}/\many{Z}]}{n_j})_j}
+  {\checkskgs{B[\many{R}/\many{Z}]}{c~\many{R}~\many{n}}}
+
+\inferrule[T-Thunk]
+  {\checksdefkg{C}{e}}
+  {\checkskgs{\thunk{C}}{\thunk{e}}}
+
+\inferrule[T-Let]
+  {P = \forall \many{Z}.A \\\\
+   \checkbase{\kenv, \many{Z}}{\sigentails{\emptyset}}{\Gamma}{A}{n} \\
+   \checksk{\Gamma, f : P}{\sigs}{B}{n'}}
+  {\checkskgs{B}{\key{let}~f : P = n~\key{in}~n'}}
+
+\inferrule[T-LetRec]
+  {(P_i = \forall \many{Z}_i.\thunk{C_i})_i \\\\
+   (\checkbase{\kenv, \many{Z}_i}{\vdash}{\Gamma, \many{f : P}}{C}{e_i})_i\\
+   \checksk{\Gamma, \many{f : P}}{\sigs}{B}{n}}
+  {\checkskgs{B}{\key{letrec}~\many{f : P = e}~\key{in}~n}}
+
+\inferrule[T-Adapt]
+  {\adjact{\sigs}{\adapt}{\sigs'} \\ \checksk{\Gamma}{\sigs'}{A}{n}}
+  {\checkskgs{A}{\effin{\adapt}~n}}
+\end{mathpar}
+
+$\boxed{\checksdefkg{C}{e}}$
+\begin{mathpar}
+\inferrule[T-Comp]
+  {(\matchesck{T_j}{r_{i,j}}{\sigs}{\exists \kenva_{i,j}.\Gamma'_{i,j}})_{i,j} \\
+   (\checks{\kenv, (\kenva_{i,j})_j}{\Gamma, (\Gamma'_{i,j})_j}{\sigs}{B}{n_i})_i \\
+   ((r_{i,j})_{i} \text{ covers } T_j)_j}
+  {\checksdefkg{(T_j \to)_j~\effout{\sigs}B}{((r_{i,j})_j \mapsto n_i)_i}}
+\end{mathpar}
+\caption{Term Typing Rules}
+\label{fig:term-typing}
+% \figrule
+\end{figure}
+
+
+
+\begin{figure}[t]
+%% \figrule
+\begin{syntax}
+\slab{uses}                    & m   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{constructions}           & n   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{use values}              & u   &::= & x \gor f~\many{R} \gor \cu (v : A) \\
+\slab{non-use values}          & v   &::= & k~\many{w} \gor \thunk{e} \\
+\slab{construction values}     & w   &::= & \uc u \gor v \\
+\slab{normal forms}            & t   &::= & w \gor \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{evaluation frames}       & \EF &::= & [~]~\many{n}
+                                      \gor  u~(\many{t},[~],\many{n})
+                                      \gor  \cu([~]:A) \\
+                               &     &\gor& \uc [~]
+                                      \gor  k~(\many{w},[~],\many{n})
+                                      \gor  c~\many{R}~(\many{w},[~],\many{n}) \\
+                               &     &\gor& \key{let}~f: P = [~]~\key{in}~n
+                                      \gor \effin{\adapt}~[~] \\
+\slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
+\end{syntax}
+\caption{Runtime Syntax}
+\label{fig:runtime-syntax}
+%% \figrule
+\end{figure}
+
+
+
+\begin{figure}[t]
+%% \figrule
+\flushleft
+$\boxed{\inferskgs{m}{A}}$ \quad $\boxed{\checkskgs{A}{n}}$
+\begin{mathpar}
+\inferrule[T-Freeze-Use]
+  {\neg(\EC \handles c) \\
+   \inferskgs{\EC[c~\many{R}~\many{w}]}{A}}
+  {\inferskgs{\freeze{\EC[c~\many{R}~\many{w}]}}{A}}
+
+\inferrule[T-Freeze-Cons]
+  {\neg(\EC \handles c) \\
+   \checkskgs{A}{\EC[c~\many{R}~\many{w}]}}
+  {\checkskgs{A}{\freeze{\EC[c~\many{R}~\many{w}]}}}
+\end{mathpar}
+\caption{Frozen Commands}
+\label{fig:frozen-typing}
+%% \figrule
+\end{figure}
+
+
+\begin{figure}
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+\inferrule[R-Handle]
+  {% The type system should enforce this!
+   %(\handles{\adj_j}{t_j})_j \\
+   k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+   (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}}
+   %% \forall i < k.\exists j.r_{i, j} \# t_j}
+   %% l \text{~is minimal}}
+  {\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A \to}~\effout{\sigs}B})~\many{t} \redtou \cu ((\many{\venv}(n_k) : B)}
+
+\inferrule[R-Ascribe-Use]
+  { }
+  {\cu(\uc u:A) \redtou u}
+
+\inferrule[R-Ascribe-Cons]
+  { }
+  {\uc \cu (w : A) \redtoc w}
+
+\inferrule[R-Let]
+  { }
+  {\key{let}~f:P = w~\key{in}~n \redtoc n[\cu (w : P)/f]}
+
+\inferrule[R-LetRec]
+  {\many{e = \many{\many{r} \to n}}}
+  {%\vphantom{\many{\many{\many{\many{f}}}}}
+   \key{letrec}~\many{f:P = e}~\key{in}~n' \redtoc
+    n'[\many{\cu (\thunk{\many{\many{r} \to \key{letrec}~\many{f:P = e}~\key{in}~n}}: P)/f}]}
+
+\inferrule[R-Adapt]
+  { }
+  {\effin{\adapt}~w \redtoc w}
+
+\inferrule[R-Freeze-Comm]
+  { }
+  {c~\many{R}~\many{w} \redtoc \freeze{c~\many{R}~\many{w}}}\\
+
+\inferrule[R-Freeze-Frame-Use]
+  {\neg(\EF[\EC] \handles c)}
+  {\EF[\freeze{\EC[c~\many{R}~\many{w}]}] \redtou \freeze{\EF[\EC[c~\many{R}~\many{w}]]}}
+
+\inferrule[R-Freeze-Frame-Cons]
+  {\neg(\EF[\EC] \handles c)}
+  {\EF[\freeze{\EC[c~\many{R}~\many{w}]}] \redtoc \freeze{\EF[\EC[c~\many{R}~\many{w}]]}}
+
+\\
+\inferrule[R-Lift-UU]
+  {m \redtou m'}
+  {\EC[m] \stepstou \EC[m']}
+
+\inferrule[R-Lift-UC]
+  {m \redtou m'}
+  {\EC[m] \stepstoc \EC[m']}
+
+\inferrule[R-Lift-CU]
+  {n \redtoc n'}
+  {\EC[n] \stepstou \EC[n']}
+
+\inferrule[R-Lift-CC]
+  {n \redtoc n'}
+  {\EC[n] \stepstoc \EC[n']}
+\end{mathpar}
+
+\caption{Operational Semantics}
+\label{fig:small-step}
+%% \figrule
+\end{figure}
+
+
+\begin{figure}[t]
+%% \figrule
+\flushleft
+%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
+%amb. $\venv$ and binds $\venv$.}
+$\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
+\begin{mathpar}
+
+\inferrule[B-Value]
+  {\adjact{\sigs}{\adj}{\sigs'} \\\\ \bindsv{p}{A}{w}{\venv}}
+  {\bindsc{p}{\effin{\adj}A}{w}{\sigs}{\venv}}
+
+  \inferrule[B-Request]
+    {%I~\many{R} \in \ext \\ %\capturesI{\Delta}{I}{\iota}\\
+    \adjact{\sigs}{\adj}{\sigs'} \\
+    \EC \poised c \\\\
+    \adj = \adapt\pipe\ext \\
+    c : \forall \many{Z}. \many{B \to}~B' \in \ext \\
+    (\bindsv{p_i}{B_i}{w_i}{\venv_i})_i}
+    {\bindsc{\effin{c~\many{p} \to z}}{\effin{\adj}A}
+    {\freeze{\EC[c~\many{R}~\many{w}]}}{\sigs}{\many{\venv}[\cu (\thunk{x \mapsto \EC[x]} : \thunk{B' \to \effout{\sigs'}A})/z]}}
+
+\inferrule[B-CatchAll-Value]
+  {\adjact{\sigs}{\adj}{\sigs'}}
+  {\bindsc{\effin{x}}{\effin{\adj}A}{w}{\sigs}{[\cu (\thunk{w}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+\\
+\inferrule[B-CatchAll-Request]
+  {
+  \adjact{\sigs}{\adj}{\sigs'} \\
+  \EC \poised c \\\\
+  \adj = \adapt\pipe\ext \\
+  c : \forall \many{Z}. \many{B \to}~B' \in \ext
+  }
+  {\bindsc{\effin{x}}{\effin{\adj}A}
+  {\freeze{\EC[c~\many{R}~\many{w}]}}
+  {\sigs}
+  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+
+\end{mathpar}
+
+
+%~~ \textit{Value pattern $p$ for type $A$ matches $w$ and binds $\venv$.}
+%
+$\boxed{\bindsv{p}{A}{w}{\venv}}$
+\begin{mathpar}
+
+\inferrule[B-Var]
+  { }
+  {\bindsv{x}{A}{w}{[\cu (w : A)/x]}}
+
+\inferrule[B-Data]
+  {k~\many{A} \in D~\many{R} \\
+   (\bindsv{p_i}{A_i}{w_i}{\venv_i})_i}
+ {\bindsv{k~\many{p}}{D~\many{R}}{k~\many{w}}{\many{\venv}}}
+\end{mathpar}
+
+\caption{Pattern Binding}
+\label{fig:pattern-binding}
+%% \figrule
+\end{figure}
+
+
+
+\chapter{Arbitrary Thread Interruption}
+
+
+\section{Relaxing Catches}\label{sec:relaxingcatches}
+
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+%% \centering
+%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
+%amb. $\venv$ and binds $\venv$.}
+\begin{mathpar}
+
+\inferrule[B-CatchAll-Request-Loose]
+  {
+  \adjact{\sigs}{\adj}{\sigs'} \\
+  %% \EC \poised c \\\\
+  %% \adj = \adapt\pipe\ext \\
+  %% c : \forall \many{Z}. \many{B \to}~B' \in \ext
+  }
+  {\bindsc{\effin{x}}{\effin{\adj}A}
+  {\freeze{\EC[c~\many{R}~\many{w}]}}
+  {\sigs}
+  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+
+\end{mathpar}
+
+\caption{Updated \textsc{B-CatchAll-Request}}
+\label{fig:loose-catchall-request}
+%% \figrule
+\end{figure}
+
+
+\section{Interrupting Arbitrary Terms}
+
+
+\begin{figure}[h]
+%% \figrule
+\begin{syntax}
+\slab{uses}                    & m   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{constructions}           & n   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{use values}              & u   &::= & x \gor f~\many{R} \gor \cu (v : A) \\
+\slab{non-use values}          & v   &::= & k~\many{w} \gor \thunk{e} \\
+\slab{construction values}     & w   &::= & \uc u \gor v \\
+\slab{normal forms}            & t   &::= & w \gor \freeze{\EC[c~\many{R}~\many{w}]} \gor \interrupt{m}\\
+\slab{evaluation frames}       & \EF &::= & [~]~\many{n}
+                                      \gor  u~(\many{t},[~],\many{n})
+                                      \gor  \cu([~]:A) \\
+                               &     &\gor& \uc [~]
+                                      \gor  k~(\many{w},[~],\many{n})
+                                      \gor  c~\many{R}~(\many{w},[~],\many{n}) \\
+                               &     &\gor& \key{let}~f: P = [~]~\key{in}~n
+                                      \gor \effin{\adapt}~[~] \\
+\slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
+\end{syntax}
+\caption{Runtime Syntax, Updated with Suspension of Uses}
+\label{fig:runtime-syntax-suspend}
+%% \figrule
+\end{figure}
+
+
+\begin{figure}[h]
+%% \figrule
+\flushleft
+%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
+%amb. $\venv$ and binds $\venv$.}
+\begin{mathpar}
+\inferrule[B-CatchAll-Interrupt]
+  {\adjact{\sigs}{\adj}{\sigs'}}
+  {\bindsc{\effin{x}}{\effin{\adj}A}{\interrupt{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+\end{mathpar}
+
+\caption{Catching Interrupts rule. }
+\label{fig:catchall-interrupt}
+%% \figrule
+\end{figure}
+
+\begin{figure}[h]
+%% \figrule
+\flushleft
+\begin{mathpar}
+%% \\
+\inferrule[R-Interrupt]
+  { }
+  {m \redtou \interrupt{m}}
+%% \\
+\end{mathpar}
+
+\caption{Use interruption rule}
+\label{fig:r-interrupt}
+%% \figrule
+\end{figure}
+
+\newpage
+\section{Freezing}
+
+\hl{Another} way of doing it is to just let any use become frozen, in the same way as
+commands become frozen once invoked.
+
+
+\begin{figure}[h]
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+
+\inferrule[R-Freeze-Use]
+  {  }
+  { m \redtou \freeze{m} }
+
+\inferrule[R-Freeze-Comm]
+  { }
+  {c~\many{R}~\many{w} \redtoc \freeze{c~\many{R}~\many{w}}}\\
+
+\inferrule[R-Freeze-Frame-Use]
+  { }
+  { \EF[\freeze{m}] \redtou \freeze{\EF[m]} }
+
+\inferrule[R-Freeze-Frame-Cons]
+  { }
+  { \EF[\freeze{m}] \redtoc \freeze{\EF[m]} }
+
+\inferrule[R-Freeze-Frame-Use]
+  {\neg(\EF[\EC] \handles c)}
+  {\EF[\freeze{\EC[c~\many{R}~\many{w}]}] \redtou \freeze{\EF[\EC[c~\many{R}~\many{w}]]}}
+
+\inferrule[R-Freeze-Frame-Cons]
+  {\neg(\EF[\EC] \handles c)}
+  {\EF[\freeze{\EC[c~\many{R}~\many{w}]}] \redtoc \freeze{\EF[\EC[c~\many{R}~\many{w}]]}}
+
+\end{mathpar}
+
+\caption{Updated Freezing}
+\label{fig:Freezing}
+%% \figrule
+\end{figure}
+
+\todo{Do we need the 'hoisting' rules for general suspended terms?}
+
+
+\begin{figure}[h]
+%% \figrule
+\begin{syntax}
+\slab{uses}                    & m   &::= & {\dots} \gor
+\freeze{\EC[c~\many{R}~\many{w}]} \gor \highlight{\freeze{m}} \\
+\slab{constructions}           & n   &::= & \dots \gor
+\freeze{\EC[c~\many{R}~\many{w}]} \gor \highlight{\freeze{m}} \\
+\slab{use values}              & u   &::= & x \gor f~\many{R} \gor \cu (v : A) \\
+\slab{non-use values}          & v   &::= & k~\many{w} \gor \thunk{e} \\
+\slab{construction values}     & w   &::= & \uc u \gor v \\
+\slab{normal forms}            & t   &::= & w \gor \freeze{\EC[c~\many{R}~\many{w}]} \gor \highlight{\freeze{m}}\\
+\slab{evaluation frames}       & \EF &::= & [~]~\many{n}
+                                      \gor  u~(\many{t},[~],\many{n})
+                                      \gor  \cu([~]:A) \\
+                               &     &\gor& \uc [~]
+                                      \gor  k~(\many{w},[~],\many{n})
+                                      \gor  c~\many{R}~(\many{w},[~],\many{n}) \\
+                               &     &\gor& \key{let}~f: P = [~]~\key{in}~n
+                                      \gor \effin{\adapt}~[~] \\
+\slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
+\end{syntax}
+\caption{Runtime Syntax, Updated with Freezing of Uses}
+\label{fig:runtime-syntax-freeze}
+%% \figrule
+\end{figure}
+
+\begin{figure}[h]
+%% \figrule
+\flushleft
+%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
+%amb. $\venv$ and binds $\venv$.}
+\begin{mathpar}
+\inferrule[B-CatchAll-Interrupt]
+  {\adjact{\sigs}{\adj}{\sigs'}}
+  {\bindsc{\effin{x}}{\effin{\adj}A}{\freeze{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+\end{mathpar}
+
+\caption{Catching Frozen Terms rule.}}
+\label{fig:catchall-frozen}
+%% \figrule
+\end{figure}
+
+\section{Yielding}
+
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+$\boxed{m \redtou m'} $
+\begin{mathpar}
+
+\inferrule[R-Yield]
+  {  }
+  { m \redtou \key{let}~\textsf{yield} : [\textsf{Yield}]\textsf{Unit} = \_ \key{in}~m}
+
+\end{mathpar}
+
+\caption{Inserting Yields \todo{Only if yield is in the ability of m?} \todo{How
+do we access $m$'s type?}}
+\label{fig:insert-yield}
+%% \figrule
+\end{figure}
+
+\section{Counting}
+
+In practise we count up through the amount of \textsc{R-Handle} rules we apply
+and only insert the yield when this count exceeds a threshold value $t_y$.
+
+So we supplement the operational semantics with a \emph{counter} $c_y$, so
+that our transitions are e.g. $m; c_y \redtou m'; {c_y}'$. We adopt the
+convention that, when the counter is not mentioned in a transition\footnote{That
+is, the transition is of the form $m \redtou m'$.}, the counter stays the same.
+Hence e.g. $m \redtou m'$ desugars to $m; c_y \redtou m'; {c_y}$.
+
+So to get our counting semantics we just need to supplement Figure
+\cite{fig:operational-semantics} with the updated rule in
+
+
+\begin{figure}
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+\inferrule[R-Handle]
+  {% The type system should enforce this!
+   %(\handles{\adj_j}{t_j})_j \\
+   k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+   (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}}
+   %% \forall i < k.\exists j.r_{i, j} \# t_j}
+   %% l \text{~is minimal}}
+  {\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}; c_y \redtou \cu ((\many{\venv}(n_k) :
+    B)); c_y + 1}
+
+
+\caption{\textsf{R-Handle} with counting.}
+\label{fig:r-handle-counting}
+%% \figrule
+\end{figure}
+
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+$\boxed{m \redtou m'} $
+\begin{mathpar}
+
+\inferrule[R-Yield]
+  { c_y \geq t_y }
+  { m; {c_y} \redtou \key{let}~\textsf{yield} : [\textsf{Yield}]\textsf{Unit} =
+    \_ \key{in}~m; 0}
+
+\end{mathpar}
+
+\caption{Inserting Yields, when over counter}
+\label{fig:insert-yield-counting}
+%% \figrule
+\end{figure}
+
+
+%% \bibliographystyle{plain}
+%% \bibliography{mybibfile}
+
+%% You can include appendices like this:
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% APPENDIX
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\appendix
+
+\chapter{Remaining Formalisms}
+
+
+\begin{figure}%% \figrule
+\flushleft
+$\boxed{\adjact{\sigs}{\adj}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Adj]{\adjact{\sigs}{\adapt}{\sigs'} \\
+  \adjact{\sigs'}{\ext}{\sigs''}}
+          {\adjact{\sigs}{\adapt\pipe\ext}{\sigs''}}
+\end{mathpar}
+$\boxed{\adjact{\sigs}{\ext}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Ext-Id]{ }
+          {\adjact{\sigs}{\id}{\sigs}}
+
+\inferrule[A-Ext-Snoc]{\adjact{\sigs}{\ext}{\sigs'} }
+          {\adjact{\sigs}{\ext, \sig~\many{R}}{\sigs', \sig~\many{R}}}
+\end{mathpar}
+$\boxed{\adjact{\sigs}{\adapt}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Adapt-Id]{ }
+          {\adjact{\sigs}{\id}{\sigs}}
+
+\inferrule[A-Adapt-Snoc]{\adjact{\sigs}{\adapt}{\sigs'} \\
+    \adpcom{\sigs'}{\sig}{S}{S'}{\sigs''}}
+          {\adjact{\sigs}{\adapt, \sig(S \to S')}{\sigs''}}
+\end{mathpar}
+$\boxed{\adpcom{\sigs}{\sig}{S}{S'}{\sigs'}}$
+\begin{mathpar}
+\inferrule[A-Adapt-Com]
+  {\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv} \\
+   \itrinst{\ienv}{S'}{\sig}{\ext} \\
+   \adjact{\sigs'}{\ext}{\sigs''}}
+  {\adpcom{\sigs}{\sig}{S}{S'}{\sigs''}}
+\end{mathpar}
+
+$\boxed{\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv}}$
+\begin{mathpar}
+\inferrule[I-Pat-Id]{ }
+          {\itrbnd{\sigs}{\pid}{\sig}{\sigs}{s : \sigs}}
+
+\inferrule[I-Pat-Bind]{\itrbnd{\sigs}{S}{\sig}{\sigs'}{\ienv}}
+          {\itrbnd{\sigs,\sig~\many{R}}{S~a}{\sig}{\sigs'}
+            {\ienv,a:\sig~\many{R}}}
+
+\inferrule[I-Pat-Skip]{
+  \itrbnd{\sigs}{S~a}{\sig}{\sigs'}{\ienv} \\
+  \sig \neq \sig'}
+  {\itrbnd{\sigs,\sig'~\many{R}}{S~a}{\sig}
+          {\sigs',\sig'~\many{R}}{\ienv}}
+\end{mathpar}
+
+
+$\boxed{\itrinst{\ienv}{S}{\sig}{\ext}}$
+\begin{mathpar}
+\inferrule[I-Inst-Id]{s\in\meta{dom}(\ienv)}
+          {\itrinst{\ienv}{\pid}{\sig}{\id}}
+
+\inferrule[I-Inst-Lkp]{a\in\meta{dom}(\ienv) \\
+  \itrinst{\ienv}{S}{\sig}{\ext} \\
+  \ienv(a)=\sig~\many{R}}
+          {\itrinst{\ienv}{S~a}{\sig}{\ext,\sig~\many{R}}}
+\end{mathpar}
+%% \caption{Action of an Adaptor's Interface Component on an Ability}
+\label{fig:interface-components}
+
+
+
+\caption{Action of an Adjustment on an Ability and Auxiliary Judgements}
+\label{fig:act-adj}
+%% \figrule
+\end{figure}
+
+
+\begin{figure} % \figrule
+\flushleft
+
+\[
+\mathcal{X} ::= A \gor C \gor T \gor G \gor Z \gor R \gor P
+                  \gor \seed \gor \sigs \gor \ext \gor \adapt \gor \adj
+                  \gor \Gamma \gor \exists \kenva.\Gamma \gor \ienv
+\]
+
+$\boxed{\kindchecksk{\mathcal{X}}}$
+%% \boxed{\kindchecksk{C}}\boxed{\kindchecksk{T}}
+%% \boxed{\kindchecksk{G}}\boxed{\kindchecksk{Z}}\boxed{\kindchecksk{R}}\boxed{\kindchecksk{P}}
+%% \boxed{\kindchecksk{\seed}}\boxed{\kindchecksk{\sigs}}
+%% \boxed{\kindchecksk{\ext}}\boxed{\kindchecksk{\adapt}}\boxed{\kindchecksk{\adj}}
+%% \boxed{\kindchecksk{S}}\boxed{\kindchecksk{\Gamma}}\boxed{\kindchecksk{\ienv}}
+%% $
+\begin{mathpar}
+\inferrule[WF-Val]
+  { }
+  {\kindchecks{\kenv, X}{X}}
+
+\inferrule[WF-Eff]
+  { }
+  {\kindchecks{\kenv, [E]}{E}}
+
+\inferrule[WF-Poly]
+  {\kindchecks{\kenv, \many{Z}}{A}}
+  {\kindchecks{\kenv}{\forall \many{Z}.A}}
+\\
+\inferrule[WF-Data]
+  {(\kindchecksk{R})_i}
+  {\kindchecksk{D~\many{R}}}
+
+\inferrule[WF-Thunk]
+  {\kindchecksk{C}}
+  {\kindchecksk{\thunk{C}}}
+
+\inferrule[WF-Comp]
+  {(\kindchecksk{T})_i \\ \kindchecksk{G}}
+  {\kindchecksk{\many{T \to}~ G}}
+
+\inferrule[WF-Arg]
+  {\kindchecksk{\adj} \\ \kindchecksk{A}}
+  {\kindchecksk{\effin{\adj}A}}
+
+\inferrule[WF-Ret]
+  {\kindchecksk{\sigs} \\ \kindchecksk{A}}
+  {\kindchecksk{\effout{\sigs}A}}
+
+\inferrule[WF-Ability]
+  {\kindchecksk{\sigs}}
+  {\kindchecksk{[\sigs]}}
+
+\inferrule[WF-Pure]
+  { }
+  {\kindchecksk{\nowt}}
+
+\inferrule[WF-Id]
+  { }
+  {\kindchecksk{\id}}
+
+\inferrule[WF-Ext]
+  {\kindchecksk{\ext} \\ (\kindchecksk{R})_i}
+  {\kindchecksk{\ext, \sig~\many{R}}}
+
+\inferrule[WF-Adapt]
+  {\kindchecksk{\adapt}}
+  {\kindchecksk{\adapt, \sig~(S \to S')}}
+\\
+\inferrule[WF-Empty]
+  { }
+  {\kindchecksk{\cdot}}
+
+\inferrule[WF-Mono]
+  {\kindchecksk{\Gamma} \\ \kindchecksk{A}}
+  {\kindchecksk{\Gamma, x : A}}
+
+\inferrule[WF-Poly]
+  {\kindchecksk{\Gamma} \\ \kindchecksk{P}}
+  {\kindchecksk{\Gamma, f : P}}
+\\
+
+\inferrule[WF-Existential]
+  {\kindchecks{\kenv, \kenva}{\Gamma}}
+  {\kindchecksk{\exists \kenva.\Gamma}}
+
+\inferrule[WF-Interface]
+  {\kindchecksk{\ienv} \\ (\kindchecksk{R})_i}
+  {\kindchecksk{\ienv, x : \sig~\many{R}}}
+
+\end{mathpar}
+
+
+\caption{Well-Formedness Rules}
+\label{fig:well-formedness}
+
+% \figrule
+\end{figure}
+
+\begin{figure} % \figrule
+\flushleft
+$\boxed{\matchesvk{A}{p}{\Gamma}}$
+\begin{mathpar}
+\inferrule[P-Var]
+  { }
+  {\matchesvk{A}{x}{x:A}}
+
+\inferrule[P-Data]
+  {k~\many{A} \in D~\many{R} \\
+   (\matchesvk{A_i}{p_i}{\Gamma})_i}
+  {\matchesvk{D~\many{R}}{k~\many{p}}{\many{\Gamma}}}
+\end{mathpar}
+$\boxed{\matchesck{T}{r}{\sigs}{\exists \kenva.\Gamma}}$
+\begin{mathpar}
+\inferrule[P-Value]
+  {\adjact{\sigs}{\adj}{\sigs'} \\ \matchesvk{A}{p}{\Gamma}}
+  {\matchesck{\effin{\adj}A}{p}{\sigs}{\Gamma}}
+
+\inferrule[P-CatchAll]
+  {\adjact{\sigs}{\adj}{\sigs'}}
+  {\matchesck{\effin{\adj}A}{\effin{x}}{\sigs}{x:{\thunk{\effout{\sigs'}A}}}}
+
+\inferrule[P-Command]
+  {
+   \adjact{\sigs}{\adj}{\sigs'} \\
+   \adj = \adapt\pipe\ext \\
+   c:\forall \many{Z}.\many{A \to} B \in \ext \\
+   (\matchesv{\kenv, \many{Z}}{A_i}{p_i}{\Gamma_i})_i}
+  {\matchesc{\kenv}
+            {\effin{\adj}B'}
+            {\effin{\handle{c~\many{p}}{z}}}
+            {\sigs}
+            {\exists \many{Z}.\many{\Gamma}, z:\{\effin{\id\pipe\id}B \to \effout{\sigs'}B'\}}}
+\end{mathpar}
+\caption{Pattern Matching Typing Rules}
+\label{fig:pattern-typing}
+%% \figrule
+\end{figure}
+
+% \section{First section}
+% 
+% Markers do not have to consider appendices. Make sure that your contributions
+% are made clear in the main body of the dissertation (within the page limit).
+
+\end{document}
