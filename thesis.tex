@@ -37,7 +37,8 @@
 %% \lstset{style=mystyle}
 
 \lstset{
-  basicstyle=\small\ttfamily,
+  basicstyle=\small\ttfamily\bfseries,
+  %% basicstyle=\small\ttfamily,
   breaklines=true
 }
 
@@ -403,7 +404,15 @@
 \author{Leo Poulson}
 
 \abstract{
-Abstract
+  Features for asynchronous programming are commonplace in the programming
+  languages of today, allowing programmers to issue tasks to run on other
+  threads and wait for the results to come back later. This is particularly
+  useful for programs like web programs, etc...
+
+  In this thesis we show how asynchronous programming can be very easily
+  accomodated in a language with existing support for effect handlers. We show
+  how, with a small change to the language implementation, truly asynchronous
+  programming with pre-emptive concurrency is achieved.
 }
 
 \maketitle
@@ -416,6 +425,22 @@ thanks!
 \end{preliminary}
 
 \chapter{Programming in Frank}
+
+Frank is a functional programming language, designed with the use of algebraic
+effects at its heart. As such, Frank has an effect type system used to track
+which effects a computation may use.
+
+Frank also offers very fine-grained control over computations. It clearly
+distinguishes between computation and value, and offers \emph{multihandlers} to
+carefully control when computations are evaluated. This combined with effect
+handling provides a very rich foundation for expressing complex control
+structures.
+
+In this chapter, we introduce the language, and show why it is so well-suited to
+our task. We assume some familiarity with typed functional programming, and skip
+over some more traditional aspects of the language --- algebraic data types,
+pattern matching, etc --- so we can spend more time with the novel, interesting
+parts of the language.
 
 \section{Effects and Effect Handling}
 
@@ -438,7 +463,7 @@ invoked just as normal functions;
 
 \begin{lstlisting}
   xplusplus : {[State Int] Unit}
-  xplusplus! = let x = get! in put (x + 1)
+  xplusplus! = put (get! + 1)
 \end{lstlisting}
 
 \noindent This familiar program increments the integer in the state by 1.
@@ -465,7 +490,39 @@ value of type \code{X}, whilst the second argument is a value of type \code{S}.
 %could remove this below line...
 The \code{State S} effect is then \emph{removed} from the first argument.
 
-What happens when we run \code{runState xplusplus! 0}?
+What happens when we run \code{runState xplusplus! 0}? When a computation is
+invoked, it is performed until it results in either a \emph{value} or a
+\emph{command}. Thus, \code{runState} will be paused until \code{xplusplus!}
+reduces; \code{runState} is resumed when \code{xplusplus} is in one of these two
+forms.
+
+\code{xplusplus} instantly invokes \code{get!}. At this point, control is given
+to the handler \code{runState}; both in the sense that \code{runState} is now
+being executed by the interpreter, and that \code{runState} has control over the
+\emph{continuation} of \code{xplusplus}, which is a function of type \code{Int
+  -> [State Int] Unit}. We see that \code{runState} chooses to resume this
+continuation with the value of the state at that time.
+
+\paragraph*{Top-Level Effects}
+Some effects need to be handled outside of pure Frank, as Frank is not
+expressive or capable enough on its own. Examples are console I/O, web requests,
+and ML-style state cells.
+
+These are handled by the interpreter.
+
+\paragraph*{Synchronicity and Conversations}
+Observe how the interaction between the effect invoking function and the handler
+of this effect becomes like a conversation; the caller asks the handler for a
+response to an operation, and the caller will then wait, blocking, for a
+response. This can be characterised as \emph{synchronous} effect handling.
+
+But what if we want to make a request for information, then do something else,
+then pick up the result later when we need it? This is the canonical example of
+asynchronous programming. It is not as simple as just invoking our e.g.
+\code{getRequest} effect; computation would block once this is invoked, meaning
+we are stuck waiting for the request to return.
+
+This asynchrony is exactly what we search for in this project.
 
 %% Frank's realisation of effects is through \emph{interfaces} which offer
 %% \emph{commands}. For instance, the \code{State} effect (interface) offers two
@@ -497,6 +554,42 @@ What happens when we run \code{runState xplusplus! 0}?
 %%   runState y            _ = y
 %% \end{lstlisting}
 
+\paragraph*{Multihandlers}
+\label{para:multihandlers}
+
+Recall that in Frank pure functions are just the special case of handlers that
+handle no effects. Naturally, this notion extends to the $n$-ary case; we can
+handle multiple effects from different sources are once. Handlers which handle
+multiple effects simultaneously are unsurprisingly called \emph{multihandlers}.
+This lets us write functions such as \code{pipe} (example due to \cite{convent2020doo});
+
+\begin{lstlisting}[numbers=left]
+interface Send X = send : X -> Unit
+
+interface Receive X = receive : X
+ 
+pipe : {<Send X>Unit -> <Receive X>Y -> [Abort]Y}
+pipe <send x -> s> <receive -> r> = pipe (s unit) (r x)
+pipe <_> y = y
+pipe unit <_> = abort!
+\end{lstlisting}
+
+Line 5 states that \code{pipe} will handle all instances of the \code{Send}
+effect in the first argument, all instances of the \code{Receive} effect in the
+second, and might perform \code{Abort} commands along the way. The matching
+clauses are also new to the reader; line 6 implements the communication between
+the two functions. We reinvoke \code{pipe}, passing the payload \code{x} of
+\code{send} to the continuation of \code{r}. Lines 7 and 8 make use of the
+\emph{catch-all} pattern, \code{<m>}. This will match the invocation of any
+effect that is handled by that argument, or a value, binding this to \code{m}.
+In line 7, the catchall pattern matches either a \code{send} command or a value;
+in this case, the receiver has produced a value, so we can return that. In line
+8 \code{<_>} matches either a value or a \code{receive}; but it must be a
+\code{receive} command, as the value case would have been caught above. Hence we
+have a broken pipe, so the \code{abort} command is invoked. This can then be
+caught by another handler, which can implement a recovery strategy.
+
+\todo{Is it worth changing the example to match request on the left earlier?}
 
 \section{Concurrency}
 \label{sec:concurrency}
@@ -516,6 +609,7 @@ handling \code{Yield} operations, we easily pause and switch between several
 threads.
 
 \subsection{Simple Scheduling}
+\label{subsec:simple-scheduling}
 
 We introduce some simple program threads and some scheduling multihandlers, to
 demonstrate how subtly different handlers generate different scheduling
@@ -1003,7 +1097,8 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 
 
 
-\chapter{Arbitrary Thread Interruption}
+\chapter{Pre-emption}
+\label{chap:pre-emption}
 
 \section{Motivation}
 \label{sec:interrupt-motivation}
@@ -1012,7 +1107,11 @@ One important part of our asynchronous effect handling system is the ability to
 interrupt arbitrary computations.
 %
 This is essential for pre-emptive concurrency, which relies on being able to
-suspend a computation \emph{without} the computation yielding.
+suspend a computation \emph{non-cooperatively}; the computation gets suspended
+without being aware of its suspension.
+
+\todo{Rewrite this - clumsy}
+
 
 %% Consider the following program;
 
@@ -1033,71 +1132,75 @@ suspend a computation \emph{without} the computation yielding.
 %% \lstinline{stop} and \lstinline{go} operations, which control the execution of
 %% the second thread.
 
-For instance, consider the two programs below;
+Consider the two programs below;
 
 \begin{lstlisting}
-  controller : {[Stop, Go, Console] Unit}
-  controller! = go!; stop!; print ``stop '';
-                go!; stop!; print ``stop '';
-                go!; stop!; print ``stop ''
+controller : {[Stop, Go, Console] Unit}
+controller! =
+    stop!; print "stop "; sleep 200000; go!; controller!
 
-  runner : {[Console] Unit}
-  runner! = print ``1 ``; print ``2 ``; print ``3 '';
+runner : {[Console] Unit}
+runner! = print ``1 ``; print ``2 ``; print ``3 '';
 \end{lstlisting}
 
-\noindent We ideally want a multihandler that can run these two programs in
-parallel, such that the result will be \code{1 stop 2 stop 3 stop};
-that is to say, the \code{stop} and \code{go} operations from \code{controller}
-can control the execution of \code{runner}.
+%% \noindent We ideally want a multihandler that can run these two programs in
+%% parallel, such that the console output will be \code{1 stop 2 stop 3 stop}; that
+%% is to say, the \code{stop} and \code{go} operations from \code{controller} can
+%% control the execution of \code{runner}.
+
+\noindent We want a multihandler that uses the \code{stop} and \code{go} commands from
+\code{controller} to control the execution of \code{runner}. The console output
+of this multihandler should be then \code{1 stop 2 stop 3 stop}.
 
 \section{Interruption with Yields}
+\label{sec:yield-interruption}
 
-One way we can get this behaviour is using the \code{Yield} interface. This
-offers a single operation, \code{yield : Unit}. With this, we can write a
-multihandler \code{suspend};
+%% One way we can get this behaviour is using the \code{Yield} interface. This
+%% offers a single operation, \code{yield : Unit}. With this, we can write a
+%% multihandler \code{suspend};
+
+We can simulate this behaviour by using the familiar \code{Yield} interface from
+Section~\ref{subsec:simple-scheduling}.
 
 \begin{lstlisting}
 runner : {[Console, Yield] Unit}
 runner! = print "1 "; yield!; print "2 "; yield!; print "3 "; yield!
 
 suspend : {<Yield> Unit -> <Stop, Go> Unit -> Maybe {[Console, Yield] Unit} -> [Console] Unit}
-suspend <yield -> k> <stop -> l> _ = suspend unit (l unit) (just {k unit})
-suspend <k>          <go -> l> (just res) = suspend (res!) (l unit) nothing
-suspend <yield -> k> <m> maybe = suspend (k unit) m! maybe
-suspend unit _ _ = unit
-suspend _ unit _ = unit
+suspend <yield -> r> <stop -> c> _ =
+    suspend unit (c unit) (just {r unit})
+suspend <_>          <go -> c>   (just res) =
+    suspend res! (c unit) nothing
+suspend unit         <_>         _ = unit
 \end{lstlisting}
 
-\todo{Maybe make more concise?}
-\todo{change to not be letter l cos it looks like a 1}
-
 \noindent Running \code{suspend runner! controller! nothing} then prints out
-\code{1 stop 1 2 stop 2 3 stop 3} as desired. So far so good; this works as
-planned. However, observe that we had to change the code of the original runner
-program to \code{yield} every time it prints. We would rather not have this
-requirement; the threads should be suspendable without knowing in advance they
-will be suspended, and thus without needing to explicitly \code{yield}.
+\code{1 stop 2 stop 3} as desired.
+%
+This is due to the same synchronisation behaviour that we saw in
+Section~\ref{subsec:simple-scheduling}; \code{runner} is evaluated until it
+becomes a command or a value, and then \code{controller} is given the same
+treatment. Once both are a command or a value, pattern matching is done.
+
+So far so good; this works as we hoped. However, observe that we had to change
+the code of the \code{runner} to \code{yield} every time it prints.
+%
+%% We would rather not have this requirement; the threads should be suspendable
+%% without knowing in advance they will be suspended, and thus without needing to
+%% explicitly \code{yield}.
+%
+This is not in the spirit of pre-emptive concurrency; we are still operating
+co-operatively. Threads should be unaware of the fact they are even being
+pre-empted.
+% The below line could maybe go...
 Furthermore, see that the \code{yield} operation adds no more information; it is
-just used as a placeholder operation; any operation would work. As such, we keep
-searching for a better solution.
+just used as a placeholder operation; any operation would work.
+%
+As such, we keep searching for a better solution.
+
+\todo{Penultimate sentence could maybe go , a bit clumsy / weird}
 
 \section{Relaxing Catches}\label{sec:relaxingcatches}
-
-The key to this lies in the catchall pattern, $\effin{x}$, and the pattern
-binding rules of Figure \ref{fig:pattern-binding}.
-
-Recall that the catchall pattern $\effin{x}$ matches either a value --- e.g.
-\code{unit} --- or a command that is handled in the surrounding ability. For
-instance, the pattern \code{<k>} in the code above matches either \code{unit}
-or \code{<yield -> k>}. The variable \code{k} is then bound to
-whatever this match is, leaving the (potentially) invoked effect unhandled. This
-is expressed in the \textsc{B-CatchAll-Request} rule in Figure~\ref{fig:pattern-binding}.
-
-Important to note is that only effects that are handled in that position are
-able to be caught. \code{runner} also makes use of the \code{print} effect, but
-these are not able to be caught by the catchall command. Formally, this is due
-to the fourth requirement of \textsc{B-CatchAll-Request}; that the command $c$
-that is invoked is a member of $\ext$.
 
 \begin{figure}[t]
 %% \figrule
@@ -1107,6 +1210,96 @@ that is invoked is a member of $\ext$.
 %amb. $\venv$ and binds $\venv$.}
 \begin{mathpar}
 
+\inferrule[B-CatchAll-Request]
+  {
+  \adjact{\sigs}{\adj}{\sigs'} \\
+  \EC \poised c \\\\
+  \adj = \adapt\pipe\ext \\
+  c : \forall \many{Z}. \many{B \to}~B' \in \ext
+  }
+  {\bindsc{\effin{x}}{\effin{\adj}A}
+  {\freeze{\EC[c~\many{R}~\many{w}]}}
+  {\sigs}
+  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+
+\\
+\inferrule[B-CatchAll-Request-Loose]
+  {
+  \adjact{\sigs}{\adj}{\sigs'} \\
+  %% \EC \poised c \\\\
+  %% \adj = \adapt\pipe\ext \\
+  %% c : \forall \many{Z}. \many{B \to}~B' \in \ext
+  }
+  {\bindsc{\effin{x}}{\effin{\adj}A}
+  {\freeze{\EC[c~\many{R}~\many{w}]}}
+  {\sigs}
+  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+
+\end{mathpar}
+
+\caption{Updated \textsc{B-CatchAll-Request}}
+\label{fig:loose-catchall-request}
+%% \figrule
+\end{figure}
+The key to this lies in the catchall pattern, $\effin{x}$, and the pattern
+binding rules of Figure~\ref{fig:pattern-binding}; specifically
+\textsc{B-CatchAll-Request}. We quickly go into detail on this rule now.
+%
+$\effin{x} : {\effin{\adj}A}$ states that $\effin{x}$ is a term with value type
+$A$ and \emph{adjustment} $\adj = \adapt\pipe\ext$, made up of an adaptor
+$\adapt$ and an extension $\ext$. This extension is made up of a list of
+interface instantiations $\sig~\many{R}$.
+
+The crux is that the command $c$ that is invoked in the frozen term
+$\freeze{\EC[c~\many{R}~\many{w}]}$ must be an element of this extension $\ext$;
+that is, it must be handled by the current use of \textsc{R-Handle}. Refer back
+to the example of Section~\ref{sec:yield-interruption}. This rules means that
+the catch-all pattern \code{<_>} in the final pattern matching case of
+\code{suspend} can match against \code{stop} or \code{go}, as they are present
+in the extension of the second argument, but not \code{print} commands; although
+the \code{Console} interface is present in the ability of \code{controller}, it
+is not in the extension in \code{suspend}.
+
+
+
+%% Recall that the catchall pattern $\effin{x}$ matches either a value or a command
+%% that is present in the term's ability. For instance, the pattern \code{<k>} in
+%% the code above matches either \code{unit} or \code{<yield -> k>}. The variable
+%% \code{k} is then bound to whatever this match is, leaving the (potentially)
+%% invoked command unhandled. This is expressed in the \textsc{B-CatchAll-Request}
+%% rule in Figure~\ref{fig:pattern-binding} (restated in
+%% Figure~\ref{fig:loose-catchall-request}).
+
+%% \todo{'Present in the term's ability' is incorrect, fix }
+
+
+%% Important to note is that only effects that are handled in that position are
+%% able to be caught. \code{runner} also makes use of the \code{print} effect, but
+%% these are not able to be caught by the catchall command. Formally, this is due
+%% to the fourth requirement of \textsc{B-CatchAll-Request}; that the command $c$
+%% that is invoked is a member of $\ext$.
+
+\begin{figure}[t]
+%% \figrule
+%% \flushleft
+%% \centering
+%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
+%amb. $\venv$ and binds $\venv$.}
+\begin{mathpar}
+
+\inferrule[B-CatchAll-Request]
+  {
+  \adjact{\sigs}{\adj}{\sigs'} \\
+  \EC \poised c \\\\
+  \adj = \adapt\pipe\ext \\
+  c : \forall \many{Z}. \many{B \to}~B' \in \ext
+  }
+  {\bindsc{\effin{x}}{\effin{\adj}A}
+  {\freeze{\EC[c~\many{R}~\many{w}]}}
+  {\sigs}
+  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+
+\\
 \inferrule[B-CatchAll-Request-Loose]
   {
   \adjact{\sigs}{\adj}{\sigs'} \\
@@ -1126,28 +1319,34 @@ that is invoked is a member of $\ext$.
 %% \figrule
 \end{figure}
 
-As such, we propose to remove this constraint from \textsc{B-CatchAll-Request}.
-The resulting rule can then be seen in Figure~\ref{fig:loose-catchall-request}.
-This lets us update the previous \code{suspend} code to the following, which
-yields the same results as last time;
+In the interests of pre-emption, we propose to remove this constraint from
+\textsc{B-CatchAll-Request}.
+%
+The resulting rule \textsc{B-CatchAll-Request-Loose} can be seen in
+Figure~\ref{fig:loose-catchall-request}. This lets us update the previous
+\code{suspend} code to the following, which yields the same results as last
+time;
 
 \begin{lstlisting}
 runner : {[Console] Unit}
 runner! = print "1 "; print "2 "; print "3 "
 
 suspend : {Unit -> <Stop, Go> Unit -> Maybe {[Console] Unit} -> [Console] Unit}
-suspend <k> <stop -> l> _          = suspend unit   (l unit) (just {k unit})
-suspend <k> <go -> l>   (just res) = suspend (res!) (l unit) nothing
-suspend unit _ _ = unit
-suspend _ unit _ = unit
+suspend <r> <stop -> c> _ =
+    suspend unit (c unit) (just {r unit})
+suspend <_>          <go -> c>   (just res) =
+    suspend res! (c unit) nothing
+suspend unit         <_>         _ = unit
 \end{lstlisting}
 
-\todo{ Verify that this particular example really works. }
-
-\noindent Why does this work? \todo{explain}
+\todo{ Check that the above still works... }
+\noindent Now when we run \code{suspend runner! controller! nothing}, the
+\code{suspend} handler is able to
 
 \todo{Talk about how this still maintains the ``no-snooping'' policy; we can't
   inspect or access the effects that are invoked, but we know they happen.}
+
+Even with this extension,
 
 \section{Interrupting Arbitrary Terms}
 
@@ -1292,8 +1491,8 @@ Thus our example from before becomes;
 
 \todo{updated example}
 
-%% \bibliographystyle{plain}
-%% \bibliography{mybibfile}
+\bibliographystyle{plainnat}
+\bibliography{bibliography}
 
 %% You can include appendices like this:
 %%

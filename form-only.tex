@@ -978,13 +978,19 @@ $\boxed{m \redtou m'} $
 \begin{mathpar}
 
 \inferrule[R-Yield]
-  {  }
-  { m \redtou \key{let}~\textsf{yield} : [\textsf{Yield}]\textsf{Unit} = \_ \key{in}~m}
+  {
+    \adj = \adapt\pipe\ext \\
+    \textsf{Yield} \in \ext
+  }
+  { \cu({n : [\adj] A})
+    \redtou
+    \cu(\key{let}~\textsf{yield!} : [\adj]\textsf{Unit} =
+    \_~\key{in}~m : [\adj] A)
+  }
 
 \end{mathpar}
 
-\caption{Inserting Yields \todo{Only if yield is in the ability of m?} \todo{How
-do we access $m$'s type?}}
+\caption{Inserting Yields}
 \label{fig:insert-yield}
 %% \figrule
 \end{figure}
