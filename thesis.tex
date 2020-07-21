@@ -1491,6 +1491,36 @@ Thus our example from before becomes;
 
 \todo{updated example}
 
+\section{Soundness}
+
+We now state the soundness property for our extended system, as well as the
+subject reduction theorem needed for this proof.
+
+%% \begin{restatable}[Subject Reduction]{theorem}{subred}\label{thm:sub-red}
+%%   \\
+%% \begin{itemize}
+%% \item If $\inferskgs{m}{A}$ and $m \redtou m'$ then $\inferskgs{m'}{A}$.
+%% \item If $\checkskgs{A}{n}$ and $n \redtoc n'$ then $\checkskgs{A}{n'}$.
+%% \end{itemize}
+%% \end{restatable}
+
+\begin{theorem}[Subject Reduction]\label{thm:sub-red}
+\vskip
+\begin{itemize}\\
+\item If $\inferskgs{m}{A}$ and $m \redtou m'$ then $\inferskgs{m'}{A}$.
+\item If $\checkskgs{A}{n}$ and $n \redtoc n'$ then $\checkskgs{A}{n'}$.
+\end{itemize}
+  \end{theorem}
+
+\begin{proof}
+By induction on the transitions.... \todo{Finish this}
+\end{proof}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% BIBLIOGRAPHY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 \bibliographystyle{plainnat}
 \bibliography{bibliography}
 

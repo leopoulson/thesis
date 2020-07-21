@@ -977,23 +977,126 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 $\boxed{m \redtou m'} $
 \begin{mathpar}
 
+%% \inferrule[R-Yield]
+%%   {
+%%     \sigs = \seed\pipe\ext \\
+%%     \textsf{Yield} \in \ext
+%%   }
+%%   { \cu({n : [\sigs] A})
+%%     \redtou
+%%     \cu(
+%%     \key{let}~f_n : \{\textsf{Unit} \to [\sigs]A\} = \{\_ \mapsto n\}~\key{in}~
+%%     (\key{let}~y : [\sigs]\textsf{Unit} = \textsf{yield}!~\key{in}~
+%%     f_n~y) : [\sigs] A)
+%%   }
+
+%%   \\
+%% %% \inferrule[R-Yield]
+%% %%   {
+%% %%     \sigs = \seed\pipe\ext \\
+%% %%     \textsf{Yield} \in \ext
+%% %%   }
+%% %%   { \cu({\thunk{n} : \thunk{[\sigs] A}})
+%% %%     \redtou
+%% %%     \cu(
+%% %%     \key{let}~f_n : \{\textsf{Unit} \to \thunk{[\sigs]A}\} = \{\_ \mapsto
+%% %%     \thunk{n}\}~\key{in}~ \\
+%% %%     (\key{let}~\thunk{y} : \thunk{[\sigs]\textsf{Unit}} = \textsf{yield}~\key{in}~
+%% %%     f_n~y!) : \thunk{[\sigs] A})
+%% %%   }
+
+%% %% \\
 \inferrule[R-Yield]
   {
-    \adj = \adapt\pipe\ext \\
+    \sigs = \seed\pipe\ext \\
     \textsf{Yield} \in \ext
   }
-  { \cu({n : [\adj] A})
+  {
+    {\begin{array}{rl}
+    \cu({\thunk{n} : \thunk{[\sigs] A}})
     \redtou
-    \cu(\key{let}~\textsf{yield!} : [\adj]\textsf{Unit} =
-    \_~\key{in}~m : [\adj] A)
+    \cu(&\key{let}~f_n : \{\textsf{Unit} \to [\sigs]A\} = \{\_ \mapsto
+    n\}~\key{in}~ \\
+    &\key{let}~y : \thunk{[\sigs]\textsf{Unit}} = \thunk{\textsf{yield!}}~\key{in}~
+    \thunk{f_n~(\uc{(y!)})} : \thunk{[\sigs] A})
+      \end{array}
+      }
   }
+
+\\
+\inferrule[R-Yield-EF]
+          { \EF[\EC]~\textsf{allows}~\textsf{Yield} }
+          { \EF[\EC[m]] \redtou \EF[\EC[\textsf{yield!}; m]] }
+\\
 
 \end{mathpar}
 
-\caption{Inserting Yields}
+\caption{Inserting Yields
+  \todo{In R-Yield-EF we have to let terms inside eval
+    CTXs be also uses. Does this not mean that we can then put any term in
+    either one? Is that a problem?}
+  \todo{Not sure if we want to yield /inside/ the ctx, or just before it?}}
 \label{fig:insert-yield}
 %% \figrule
 \end{figure}
+
+%% We explain \textsc{R-Yield} here. Given a suspended construction $\thunk{n}$,
+%% which has been ascribed the type $\thunk{[\sigs]A}$, we produce a new function
+%% $f_n$ which takes a value of type $\textsf{Unit}$ and returns the original term
+%% $n$, and a thunk $y$ which is just $\textsf{yield!}$ suspended. Note that we
+%% write $\textsf{yield}!$ for the 0-ary invocation of the command
+%% $\textsf{yield}$. We then apply this constructed function $f_n$ to $y!$; note
+%% that because the interface $\textsf{Yield}$ is a member of the ability $\sigs$
+%% this is well-typed.
+
+Note that \textsc{R-Yield-EF} relies on the predicate
+$\EF[\EC]~\textsf{allows}~c$. This states that the \textsf{Yield}
+interface is in the ability of the term in the evaluation context.
+
+For any frame apart from argument frames,
+$\EF[\EC]~\textsf{allows}~c = \textsf{false}$. In this case, it is defined as
+follows;
+
+\begin{equations}
+  \cu (v : \thunk{\many{\effin{\adj} A
+      \to}~\effout{\sigs}B})~(\many{t},[~],\many{n})~\textsf{allows}~c =
+          \left\{ \ba{@{}l@{\quad}l@{}}
+          \ext~\textsf{allows}~c & \text{if } |\many{n}| = 0~\text{ where } \sigs =~\seed\pipe\ext \\
+          \textsf{false} & \text{otherwise}
+          \right.
+
+\end{equations}
+
+\todo{What happens for 0-ary constructors? I don't know if it's exactly how I
+  think it is.}
+
+\noindent For an extension $\ext$, the \textsf{allows} predicate is defined as
+
+\begin{equations}
+  \id~\textsf{allows}~c &=& \textsf{false} \\
+  (\ext, \sig~\many{R})~\textsf{allows}~c &=&
+      \left\{ \ba{@{}l@{\quad}l@{}}
+      \textsf{true} & \text{if } c\in\sig \\
+      \ext~\textsf{allows}~c & \text{otherwise}
+      \right.
+\end{equations}
+
+Informally, $\EF[\EC]~\textsf{allows}~c$ is true when $\EF[\EC]$ is a handler
+with the command $c$ as a member of an interface in its ability, \emph{and} all
+of the arguments have been evaluated (this is what the $|\many{n}| = 0$
+constraint expresses).
+
+%% \begin{equations}
+%% \af(c, \id) &=& s \to s \\
+%% \af(c, (\ext, \sig~\many{R})) &=&\left\{
+%%                                     \ba{@{}l@{\quad}l@{}}
+%%                                     s \to s \snoc \bot, & \text{if } c \in I \\
+%%                                     \af(c, \ext), & \text{otherwise} \\
+%%                                     \ea
+%%                                   \right.
+%% \end{equations}
+
+
 
 \section{Counting}
 
@@ -1043,7 +1146,7 @@ $\boxed{m \redtou m'} $
 \inferrule[R-Yield]
   { c_y \geq t_y }
   { m; {c_y} \redtou \key{let}~\textsf{yield} : [\textsf{Yield}]\textsf{Unit} =
-    \_ \key{in}~m; 0}
+    y \key{in}~m; 0}
 
 \end{mathpar}
 
