@@ -76,6 +76,9 @@
 \newcommand{\code}[1]{\lstinline{#1}}
 
 
+\newcommand{\highlight}[1]{%
+  \colorbox{red!20}{$\displaystyle#1$}}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1359,21 +1362,21 @@ As such, we need to further change the pattern binding rules of Figure
 \ref{fig:pattern-binding}. This is to let us interrupt arbitrary computation
 terms. In Figure \ref{fig:runtime-syntax-updated}, we see an updated version of
 the runtime syntax; this allows for the suspension of arbitrary \emph{uses},
-being function applications and constructions.
+essentially just function applications.
 
 \todo{verify that uses are ``just'' apps and constructions}
-
-\todo{Do we need to add interrupts to evaluation frames?}
 
 \begin{figure}[t]
 %% \figrule
 \begin{syntax}
-\slab{uses}                    & m   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
-\slab{constructions}           & n   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
+\slab{uses}                    & m   &::= & {\dots} \gor
+\freeze{\EC[c~\many{R}~\many{w}]} \gor \highlight{\freeze{m}} \\
+\slab{constructions}           & n   &::= & \dots \gor
+\freeze{\EC[c~\many{R}~\many{w}]} \gor \highlight{\freeze{m}} \\
 \slab{use values}              & u   &::= & x \gor f~\many{R} \gor \cu (v : A) \\
 \slab{non-use values}          & v   &::= & k~\many{w} \gor \thunk{e} \\
 \slab{construction values}     & w   &::= & \uc u \gor v \\
-\slab{normal forms}            & t   &::= & w \gor \freeze{\EC[c~\many{R}~\many{w}]} \gor \interrupt{m}\\
+\slab{normal forms}            & t   &::= & w \gor \freeze{\EC[c~\many{R}~\many{w}]} \gor \highlight{\freeze{m}}\\
 \slab{evaluation frames}       & \EF &::= & [~]~\many{n}
                                       \gor  u~(\many{t},[~],\many{n})
                                       \gor  \cu([~]:A) \\
@@ -1384,17 +1387,47 @@ being function applications and constructions.
                                       \gor \effin{\adapt}~[~] \\
 \slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
 \end{syntax}
-\caption{Runtime Syntax, Updated with Suspension of Uses}
-\label{fig:runtime-syntax-updated}
+\caption{Runtime Syntax, Updated with Freezing of Uses}
+\label{fig:runtime-syntax-freeze}
 %% \figrule
 \end{figure}
 
+
+\begin{figure}[h]
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+
+\inferrule[R-Freeze-Use]
+  {  }
+  { m \redtou \freeze{m} }
+
+\inferrule[R-Freeze-Frame-Use]
+  { }
+  { \EF[\EC[\freeze{m}]] \redtou \freeze{\EF[\EC[m]]} }
+
+\inferrule[R-Freeze-Frame-Cons]
+  { }
+  { \EF[\EC[\freeze{m}]] \redtoc \freeze{\EF[\EC[m]]} }
+
+\end{mathpar}
+
+\caption{Updated Freezing \todo{Maybe need to add that the eval ctx is NOT a handler?}}
+\label{fig:Freezing}
+%% \figrule
+\end{figure}
+
+Note that frozen terms here behave in a similar way to frozen commands, by
+freezing the rest of the term around it as well. This continues up until a
+handler is reached, at which point the term is unfrozen and resumed.
+
 With this in mind, we now give the updated rule for the catchall pattern
-matching on interrupted terms (denoted $\interrupt{m}$). This can be seen in
-Figure \ref{fig:catchall-interrupt}. It expresses that an arbitrary suspended
-\emph{use} can be matched against the computation pattern $\effin{x}$. The suspended
-computation $\thunk{m}$ is then bound to $x$, in a similar way to other
-\textsc{B-CatchAll} rules.
+matching on frozen terms. This can be seen in Figure \ref{fig:catchall-freeze}.
+It expresses that an arbitrary frozen \emph{use} can be matched against the
+computation pattern $\effin{x}$. The suspended, unfrozen computation $\thunk{m}$
+is then bound to $x$, in a similar way to other \textsc{B-CatchAll} rules.
 
 \begin{figure}[t]
 %% \figrule
@@ -1404,11 +1437,11 @@ computation $\thunk{m}$ is then bound to $x$, in a similar way to other
 \begin{mathpar}
 \inferrule[B-CatchAll-Interrupt]
   {\adjact{\sigs}{\adj}{\sigs'}}
-  {\bindsc{\effin{x}}{\effin{\adj}A}{\interrupt{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
+  {\bindsc{\effin{x}}{\effin{\adj}A}{\freeze{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
 \end{mathpar}
 
 \caption{Catching Interrupts rule. }
-\label{fig:catchall-interrupt}
+\label{fig:catchall-freeze}
 %% \figrule
 \end{figure}
 
@@ -1433,12 +1466,12 @@ computation $\thunk{m}$ is then bound to $x$, in a similar way to other
 %% required rule can be seen in
 
 Figure~\ref{fig:r-interrupt} shows how uses $m$ become interrupted. This rule
-supplements the operational semantics of Figure~\ref{fig:small-step}. It
-states that at any point, a use term can reduce to the same term but suspended.
-At this point, the term cannot reduce any further; observe that $\interrupt{ }$
-is not an evaluation context. The term then blocks until it is handled away.
-Note how similar this is to regular command invocations, which block until their
-continuation is invoked.
+supplements the operational semantics of Figure~\ref{fig:small-step}. It states
+that at any point, a use term can reduce to the same term but suspended. At this
+point, the term cannot reduce any further; observe that $\freeze{~}$ is not an
+evaluation context. The term then blocks until unfrozen. Note how similar this
+is to regular command invocations, which block until their continuation is
+invoked.
 
 \todo{Check that just uses is enough}
 
@@ -1515,6 +1548,16 @@ subject reduction theorem needed for this proof.
 \begin{proof}
 By induction on the transitions.... \todo{Finish this}
 \end{proof}
+
+
+\chapter{Implementation}
+
+We now introduce the Frank library used for asynchronous effects. It is untyped
+in that there is no tracking of which asynchronous effects are issued in which
+functions, however it is typed in that the traditional Frank effects promises
+can perform are tracked. Our design closely follows the
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% BIBLIOGRAPHY
