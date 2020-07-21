@@ -80,7 +80,7 @@
 \usepackage{xcolor}
 
 \newcommand{\highlight}[1]{%
-  \colorbox{red!50}{$\displaystyle#1$}}
+  \colorbox{red!20}{$\displaystyle#1$}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
@@ -1158,6 +1158,93 @@ $\boxed{m \redtou m'} $
 
 %% \bibliographystyle{plain}
 %% \bibliography{mybibfile}
+
+\chapter{Use-Only Reductions}
+
+Here we talk about how to change the operational semantics so that only uses may
+reduce.
+
+
+\begin{figure}
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+\inferrule[R-Handle]
+  {% The type system should enforce this!
+   %(\handles{\adj_j}{t_j})_j \\
+   k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+   (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}}
+   %% \forall i < k.\exists j.r_{i, j} \# t_j}
+   %% l \text{~is minimal}}
+  {\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A \to}~\effout{\sigs}B})~\many{t} \redtou \cu ((\many{\venv}(n_k) : B)}
+
+\inferrule[R-Ascribe-Use]
+  { }
+  {\cu(\uc u:A) \redtou u}
+
+\inferrule[R-Ascribe-Cons]
+  { }
+  {\uc \cu (w : A) \redtoc w}
+
+\highlight{
+\inferrule[R-Let]
+  { }
+  { \cu(\key{let}~f:P = w~\key{in}~n : A)
+    \redtou
+    \cu(n[\cu (w : P)/f] : A)
+  }
+}
+
+\highlight{
+\inferrule[R-LetRec]
+  {\many{e = \many{\many{r} \to n}}}
+  {%\vphantom{\many{\many{\many{\many{f}}}}}
+   \cu(\key{letrec}~\many{f:P = e}~\key{in}~n' : A) \redtou
+   \cu(n'[\many{\cu (\thunk{\many{\many{r} \to \key{letrec}~\many{f:P =
+              e}~\key{in}~n}}: P)/f}] : A)}
+}
+
+
+\inferrule[R-Adapt]
+  { }
+  {\effin{\adapt}~w \redtoc w}
+
+\inferrule[R-Freeze-Comm]
+  { }
+  {c~\many{R}~\many{w} \redtoc \freeze{c~\many{R}~\many{w}}}\\
+
+\inferrule[R-Freeze-Frame-Use]
+  {\neg(\EF[\EC] \handles c)}
+  {\EF[\freeze{\EC[c~\many{R}~\many{w}]}] \redtou \freeze{\EF[\EC[c~\many{R}~\many{w}]]}}
+
+\inferrule[R-Freeze-Frame-Cons]
+  {\neg(\EF[\EC] \handles c)}
+  {\EF[\freeze{\EC[c~\many{R}~\many{w}]}] \redtoc \freeze{\EF[\EC[c~\many{R}~\many{w}]]}}
+
+\\
+\inferrule[R-Lift-UU]
+  {m \redtou m'}
+  {\EC[m] \stepstou \EC[m']}
+
+\inferrule[R-Lift-UC]
+  {m \redtou m'}
+  {\EC[m] \stepstoc \EC[m']}
+
+\inferrule[R-Lift-CU]
+  {n \redtoc n'}
+  {\EC[n] \stepstou \EC[n']}
+
+\inferrule[R-Lift-CC]
+  {n \redtoc n'}
+  {\EC[n] \stepstoc \EC[n']}
+\end{mathpar}
+
+\caption{Operational Semantics}
+\label{fig:small-step}
+%% \figrule
+\end{figure}
 
 %% You can include appendices like this:
 %%
