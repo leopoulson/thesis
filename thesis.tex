@@ -36,11 +36,19 @@
 
 %% \lstset{style=mystyle}
 
+%% \lstset{escapeinside={<@}{@>}}
+
 \lstset{
-  basicstyle=\small\ttfamily\bfseries,
+  %% basicstyle=\small\ttfamily\bfseries,
+  basicstyle=\footnotesize\ttfamily\bfseries,
   %% basicstyle=\small\ttfamily,
-  breaklines=true
+  breaklines=true,
+  % For having lighter-coloured text inside listings
+  % https://tex.stackexchange.com/questions/144448/color-a-text-line-in-a-code-lstlisting
+  escapeinside={<@}{@>}
 }
+
+\newcommand{\greytext}[1]{\textcolor{black!40}{#1}}
 
 \usepackage{stmaryrd}
 \usepackage{natbib}
@@ -78,6 +86,9 @@
 
 \newcommand{\highlight}[1]{%
   \colorbox{red!20}{$\displaystyle#1$}}
+
+
+\newcommand\aeff{{\AE}ff\xspace}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
@@ -427,6 +438,28 @@ thanks!
 
 \end{preliminary}
 
+\chapter{Introduction}
+
+\section{Related Work}
+
+TFP, aeff, etc
+\section{Contributions}
+
+\paragraph*{Asynchronous Effects Library} We present a library for programming
+with asynchronous effects in the style of \aeff, built in Frank. We show how a
+complex system can be expressed concisely and elegantly when programming in a
+language with effect handlers, further cementing the case for effects as a
+foundation for concurrent programming. \todo{Rewrite the end of this; slightly
+  messy}.
+
+\paragraph*{Pre-emptive Concurrency} We show how, by making a small change to
+the operational semantics of Frank, we achieve pre-emptive concurrency; that is,
+the suspension of running threads \emph{without} co-operation. It is our hope
+that this change is simple enough to be transferrable to other languages.
+
+\paragraph*{Examples} We also deliver a set of examples of the uses of
+asynchronous effects, and show how they have benefits to other models.
+
 \chapter{Programming in Frank}
 
 Frank is a functional programming language, designed with the use of algebraic
@@ -594,6 +627,22 @@ caught by another handler, which can implement a recovery strategy.
 
 \todo{Is it worth changing the example to match request on the left earlier?}
 
+\paragraph*{Polymorphic Commands}
+
+As well as having polymorphic interfaces, such as \code{State X}, parametrised
+by e.g.~the data stored in the state, Frank supports polymorphic
+\emph{commands}. These are commands which can be instantiated for any type. An
+example is ML-style references, realised through the \code{RefState} interface;
+
+\begin{lstlisting}
+  interface RefState = new X   : X -> Ref X
+                     | read X  : Ref X -> X
+                     | write X : Ref X -> X -> Unit
+\end{lstlisting}
+
+\noindent For instance, \code{new X} can be instantiated by supplying a value as
+an argument. A \code{Ref X} cell is then returned as answer.
+
 \section{Concurrency}
 \label{sec:concurrency}
 
@@ -731,13 +780,11 @@ similar diagram of how the depth-first handling differs in Figure \ref{fig:sched
   \centering
   \begin{subfigure}
     \includegraphics[width=0.8\textwidth]{imgs/scheduleBF.png}
-    \caption{Breadth-First scheduling}
-    \label{fig:scheduleBF}
+    \caption{Breadth-First scheduling}\label{fig:scheduleBF}
   \end{subfigure}
   \begin{subfigure}
     \includegraphics[width=0.8\textwidth]{imgs/scheduleDF.png}
-    \caption{Depth-First scheduling}
-    \label{fig:scheduleDF}
+    \caption{Depth-First scheduling}\label{fig:scheduleDF}
   \end{subfigure}
 \end{figure}
 
@@ -1551,13 +1598,277 @@ By induction on the transitions.... \todo{Finish this}
 
 
 \chapter{Implementation}
+\label{chap:Implementation}
 
-We now introduce the Frank library used for asynchronous effects. It is untyped
-in that there is no tracking of which asynchronous effects are issued in which
-functions, however it is typed in that the traditional Frank effects promises
-can perform are tracked. Our design closely follows the
+We now introduce the Frank library used for asynchronous effects.
+%
+Our design closely follows the design of \aeff~(\cite{ahman2020asynchronous}).
+\aeff~is a language designed around writing multithreaded programs that
+communicate by sending \emph{interrupts}. A thread dictates how it will respond
+to an interrupt by installing an \emph{interrupt handler}.
+%
+%% These are analogous to traditional effects and handlers; an interrupt when
+%% invoked is like the invocation of a command, and an interrupt handler is like an
+%% effect handler.
+Interrupts and interrupt handlers can be seen as a less expressive version of
+effects and effect handlers; an interrupt handler describes how to behave on
+receipt of an interrupt in the same way to an effect handler, but it does not
+get access to the continuation of the calling code.
+
+Interrupts and interrupt handlers have one particularly compelling feature; when
+we invoke an interrupt (in the case of synchronous effects, this is just
+invoking a command), we can carry on computing the rest of the code whilst we
+wait for a response. This is a stark difference to traditional effects, where
+the rest of the computation is blocked whilst we wait for an answer. The
+programmer can then choose to await the response from interrupt, which does
+block computation if an answer is not already received.
+
+Our system untyped in that there is no tracking of which asynchronous effects are
+issued in which functions, however it is typed in that the traditional Frank
+effects promises can perform are tracked.
+
+\aeff~has an effect tracking system for asynchronous effects; our system does
+not. Ours does however track the effects that can be performed by interrupt
+handlers.
+
+\section{In Frank}
+
+\aeff's interrupt handlers are manifested in Frank through the \code{Promise}
+interface.
+
+\begin{lstlisting}
+interface Promise <@\greytext{[E]}@> =
+      promise R : Prom R <@\greytext{[E | Promise[E|], RefState, Yield]}@>
+               -> Pid R  <@\greytext{[E | Promise[E|], RefState, Yield]}@>
+    | signal : Sig -> Unit
+    | await R : Pid R <@\greytext{[E | Promise[E|], RefState, Yield]}@> -> R
+
+data Prom R <@\greytext{[E]}@> = prom {Sig -> Maybe {<@\greytext{[E|]}@>R}}
+
+data Pid X = pid (Ref (PromiseStatus X))
+
+data PromiseStatus X = empty | done X | resume {X -> Unit}
+\end{lstlisting}
+
+\noindent We have a lot to unpack here, so we start slowly. The \code{promise R}
+command is a polymorphic command, which takes a function of type \code{Sig ->
+  Maybe \{[E|] R\}}. This function is an interrupt handler; it dictates what to
+do on receipt of an interrupt, which is a thing of type \code{Sig}. The return
+type of the interrupt handler is \code{Maybe \{[E|] R\}}; this is because the
+programmer has the chance to return \code{nothing}, which will mean the promise
+goes unfulfilled and waits for another message. The programmer would want to do
+this on receipt of other types of message, or if a certain condition regarding
+the interrupt is not fulfilled\footnote{Interrupt handlers which put conditions
+  on the incoming interrupts are called \emph{guarded} interrupt handlers --- we
+  come back to these later.}. The \code{promise} operation returns a \code{Pid
+  R} (promise id), which is used to check if the installed promise has completed
+or not. The \code{R} type parameter is determined by the return type of the
+interrupt handler. This is later used in \code{await}.
 
 
+\code{signal} is a more simple operation. The \code{Sig} data type is the type
+of signals that the thread can invoke. These can have extra bits of information
+--- also called \emph{payloads} --- such as the parameters for a remote request.
+The handler for \code{Promise} will then send the signals to each other thread,
+possibly executing the interrupt handler if needs be.
+
+\code{await} takes a \code{Pid R} and returns a value of type \code{R}. This
+\code{R} is the returned value of the promise. If the promise has been fulfilled
+then the promise status stored in \code{Pid} will be \code{done res}; hence we
+just return this value. If it is incomplete --- i.e. the promise status is
+\code{empty} --- we add the resumption to \code{resume}.
+
+\paragraph*{Effect Typing}
+
+We can track and control the effects that promises can perform using Frank's
+effect type system. For instance, a Frank program of type \code{[Promise
+    [Console]] X} can install promises that print to the console, a program of
+type \code{[Promise[Console, Web]] X} can install promises that perform web
+requests and print to the console, etc.
+
+Note however that the effect typing is slightly complicated in the definition of the
+interface; a type of \code{Promise [Console]} means that the installed promise
+can really perform the effects \code{[Promise[Console], Console, RefState,
+    Yield]}. This is expressed by the \code{[E | Promise[E|], RefState, Yield]}
+part of the \code{promise R} definition. A recursive type is needed as the
+promises can themselves invoke other promises.
+
+\todo{Flesh this out, rewrite it}
+
+\subsection{Handling}
+
+%% In order to handle these operations, we need to maintain the state of the
+%% executing threads somewhere; when we stop executing a thread we store its status
+%% so far and start a new one. We also need ot
+
+In order to run threads in parallel, we need to maintain a collection of
+thread states; when we stop executing a thread we store its continuation so far
+and start executing a new one, in the same style as Section
+\ref{sec:concurrency}.
+
+We also need to store in this collection the promises that each thread has
+installed. These are stored as a stack so as to maintain the order of
+installation. Installing a promise is as straightforward as pushing it
+onto the corresponding thread's promise stack.
+
+
+\chapter{Examples}
+\label{chap:examples}
+
+\section{Pre-emptive Concurrency}
+
+An essential feature of our asynchronous effects system is that it supports
+pre-emptive concurrency; that is, the suspension and resumption of threads
+non-cooperatively. Naturally, this relies on the insertion of yields as
+discussed in Chapter \ref{chap:preemption}.
+
+We supplement the signals supported in our program with two more;
+
+\begin{lstlisting}
+data Sig = <@\ldots@> | stop Int | go Int
+\end{lstlisting}
+
+The integer payload can act as a counter, or as a way to tell specific threads
+to stop or go. The blocking or non-blocking behaviour then depends on the
+promises for these signals.
+
+\begin{lstlisting}
+onStop : {Int -> <@\greytext{[Promise[Console], Console, Yield, RefState]}@> Unit}
+onStop id =
+    let gp = promise (prom {s -> goPromise id s}) in
+    await gp;
+    promise (prom {s -> stopPromise id s});
+    unit
+
+stopPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise[Console], Console, Yield, RefState]}@>Unit}}
+stopPromise id (stop n) =
+   if (n == id)
+     { just { onStop id } }
+     { nothing }
+stopPromise id _ = nothing
+\end{lstlisting}
+
+\code{stopPromise} is another guarded interrupt handler; it will only fire its
+body if the payload to \code{stop} is the id of the thread. The body is then
+fairly simple; it installs a promise waiting for \code{go} and immediately
+starts blocking. The rest of the computation can not proceed until the
+corresponding go message is received. Once the go promise is fulfilled, the
+non-blocking stop promise is reinstalled.
+
+\begin{lstlisting}
+goPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise[Console], Console, Yield, RefState]}@>Unit}}
+goPromise id (go n) =
+    if (n == id)
+      { just {unit} }
+      { nothing }
+goPromise id _ = nothing
+\end{lstlisting}
+
+\code{goPromise} is simple in comparison; if it receives the correct \code{go} signal
+it just returns \code{unit}.
+
+We can then make a function pre-emptible by just installing a stop-waiting promise
+in front of the function code;
+
+\begin{lstlisting}
+counter : {Int -> <@\greytext{[Console, Yield]}@>Unit}
+counter x = ouint x; print " "; sleep 200000; counter (x + 1)
+
+thread1 : {<@\greytext{[Promise[Console], Console, RefState, Yield]}@> Unit}
+thread1! = promise (prom {s -> stopPromise 0 s}); counter 0
+\end{lstlisting}
+
+Observe that all we have to do is precompose with the promise installer; the
+rest of the code goes on unaware that it is being pre-empted. Threads can also
+then communicate etc on top of this.
+
+\todo{Is this example even interesting now that we've already got it baked into
+  the language?}
+
+\section{Async-Await}
+
+Here we show how our asynchronous effects system can express the familiar
+async-await abstraction.
+
+Consider that we want to asynchronously run web requests using the built-in
+\code{getRequest} operation. These return a value of type \code{String}, being
+hte result of the request. First we add two more signals to our set of available
+signals;
+
+\begin{lstlisting}
+data Sig = <@\ldots@> | call {String} Int | result String Int
+\end{lstlisting}
+
+\todo{Observe that this is a higher-order effect - something aeff lacks!}
+
+%% \noindent The thunked argument to \code{call} is the computation we want to run.
+
+\noindent The signal \code{call} is used to start an asynchronous operation; the
+thunked argument is the computation we want to run. \code{result} is the signal
+used by the running thread to indicate that it has completed the computation and
+is returning the \code{String} result. The \code{Int} arguments are for call
+IDs, so that the wrong results are not re-read.
+
+Unlike other implementations, the Frank realisation of async-await does not
+dynamically create new threads to run asynchronous tasks. Instead, we have a
+dedicated thread that only performs these asynced processes. This may seem
+inefficient, however see that when not executing a process the thread will be
+instantly skipped in the scheduler, so we have no overhead costs.
+
+We how show the \code{async} function that a caller would use to issue a new
+asynchronous task;
+
+\begin{lstlisting}
+resultWaiter : {Int -> <@\greytext{[Promise[Web, Console]]}@> Pid String <@\greytext{[WebThreads]}@>
+resultWaiter callNo =
+  promise (prom { (result res callNo') -> if (callNo == callNo') { just {res} } {nothing}
+                  | _ -> nothing})
+
+async : {<@\greytext{[Console, Web]}@> String} -> Ref Int ->
+    <@\greytext{[WebThreads]}@> Pid String <@\greytext{[WebThreads]}@>
+async proc callCounter =
+    let callNo = read callCounter in
+    let waiter =
+      <@\greytext{<Console, RefState, Web, Yield>}@>(resultWaiter callNo) in
+    signal (call proc callNo);
+    write callCounter (callNo + 1);
+    waiter
+\end{lstlisting}
+
+So \code{async} takes the process to be run and a reference to the callcounter.
+It then installs another promise, \code{resultWaiter}, which waits for the
+corresponding \code{result} signal to be received. \code{resultWaiter} is an
+example of a \emph{guarded} interrupt handler; it only fires if a certain
+condition regarding to the signal's payload holds (i.e. that \code{callNo ==
+  callNo'}). After installing \code{resultWaiter}, \code{async} sends a
+\code{call} signal with the process and callNo as argument, increments the call
+counter and returns the result-waiting promise.
+
+\begin{lstlisting}
+onRun : {{<@\greytext{[Console, Web]}@> String} -> Int -> <@\greytext{[WebThreads]}@> Unit}
+onRun proc callId =
+    let res = <@\greytext{<Promise, RefState, Yield>}@> proc! in
+    signal (result res callId);
+    <@\greytext{<Console, RefState, Web, Yield>}@> runner!;
+    unit
+
+runner : {[Promise[Web, Console]] Pid Unit [WebThreads]}
+runner! =
+    promise (prom {(call proc callId) -> just {onRun proc callId}
+                  | _ -> nothing})
+\end{lstlisting}
+
+\code{runner} is the process that runs on the worker thread. This simply
+installs a promise that responds to \code{call} signals. On receipt of a
+\code{call} it runs the delivered process synchronously; once it is finished it
+sends a \code{result} signal and then finally reinvokes the \code{runner}.
+%
+Note that \code{proc} can still have \code{yield} calls inserted into it, so
+that this doesn't cause the whole program to block.
+
+\todo{Example of how it gets used.}
+
+\chapter{Conclusion}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% BIBLIOGRAPHY
