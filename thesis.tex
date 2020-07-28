@@ -41,6 +41,7 @@
 \lstset{
   %% basicstyle=\small\ttfamily\bfseries,
   basicstyle=\footnotesize\ttfamily\bfseries,
+  %% basicstyle=\footnotesize\ttfamily,
   %% basicstyle=\small\ttfamily,
   breaklines=true,
   % For having lighter-coloured text inside listings
@@ -48,7 +49,6 @@
   escapeinside={<@}{@>}
 }
 
-\newcommand{\greytext}[1]{\textcolor{black!40}{#1}}
 
 \usepackage{stmaryrd}
 \usepackage{natbib}
@@ -87,6 +87,10 @@
 \newcommand{\highlight}[1]{%
   \colorbox{red!20}{$\displaystyle#1$}}
 
+\newcommand{\highlightout}[1]{%
+  \colorbox{black!20}{$\displaystyle#1$}}
+
+\newcommand{\greytext}[1]{\textcolor{black!40}{#1}}
 
 \newcommand\aeff{{\AE}ff\xspace}
 
@@ -790,8 +794,17 @@ similar diagram of how the depth-first handling differs in Figure \ref{fig:sched
 
 \chapter{Formalisation of Frank}
 
+%% We now discuss the formalisation of the Frank language. This has been discussed
+%% in depth in previous work (\cite{convent2020doo}), so we do not go into great
+%% detail about some parts of the language. Indeed, we skip over much of it for
+%% brevity's sake. We do, however ht
 
-\begin{figure}  %\figrule
+The formalisation of the Frank language has been discussed at length in previous
+work~(\cite{convent2020doo}). However, in order to illustrate changes made to
+the language to get pre-emptive concurrency, we explain some of the key parts of
+the language in this section.
+
+\begin{figure}[h]  %\figrule
 \[
 \ba{@{}c@{}}
 \ba{@{}c@{\quad\quad}c@{}}
@@ -837,8 +850,30 @@ similar diagram of how the depth-first handling differs in Figure \ref{fig:sched
 %\figrule
 \end{figure}
 
+Value types are either datatypes instantiated with type arguments $D~\overline{R}$, thunked
+computations $\thunk{C}$, or value type variables $X$. Computation types are
+zero or more argument types $T$ resulting in a return type $G$. A computation of
+type
 
+\[
+C = \effin{\adapt_1\pipe\ext_1}A_1 \to \dots \to
+      \effin{\adapt_k\pipe\ext_k}A_k \to \effout{\sigs}B
+\]
 
+has arugment types $\effin{\adapt_i\pipe\ext_i}A_i$ and return type
+$\effout{\sigs}B$; that is, a computation of type $C$ handles effects in
+extensions $\ext_i$ in its $i$-hth argument. It then returns a value of type $B$
+and potentially performs effects in $\sigs$.
+
+\todo{Talk about adaptors at each index?}
+
+An ability $\sigs$ \ldots. It may be closed $\nowt$ or open $\ev$.
+%
+An extension $\ext$ is a finite list of interfaces.
+
+We deliberately leave out details on adaptors for the sake of brevity. We also
+skip over the typing rules, as they are standard. These can be seen in the
+appendix.
 
 \begin{figure} %\figrule
 \begin{syntax}
@@ -868,101 +903,41 @@ similar diagram of how the depth-first handling differs in Figure \ref{fig:sched
 % \figrule
 \end{figure}
 
+\paragraph*{Terms} Frank uses bidirectional typing (\cite{pierce2000local}); as such, terms are
+split into \emph{uses} whose types are inferred, and \emph{constructions}, which
+are checked against a type. Uses are monomorphic variables $x$, polymorphic
+variable instantiations $f~\many{R}$, applications $m~\many{n}$ and type
+ascriptions $\cu(n:A)$. Constructions are made up of uses $\uc m$, data
+constructor instances $k~\many{n}$, suspended computations $\thunk{e}$, let
+bindings $\key{let}~f : P = n~\key{in}~n'$, recursive let $\key{letrec}~\many{f
+  : P = e}~\key{in}~n$ and adaptors $\effin{\adapt}~n$. We can inject a use into
+a construction with $\uc$ and vice versa ($\cu$); in real Frank code these are
+not present.
 
+Computations are produced by defining a sequence of pattern matching clauses.
+Each pattern matching clause takes a sequence $\many{r}$ of computation
+patterns. These can either be a request pattern
+$\effin{\handle{c~\many{p}\,}{z}}$, a catch-all pattern $\effin{x}$, or a
+standard value pattern $p$. Value patterns are made up of data constructor
+patterns $k~\many{p}$ or variable patterns $x$.
 
-\begin{figure} % \figrule
-\flushleft
-%% $\boxed{\kindchecksk{R}}$
-%% \begin{mathpar}
-%% \inferrule[K-Val]
-%%   {\TyVar(A) \subseteq \kenv}
-%%   {\kindchecksk{A}}
+\todo{Talk about typing for Frozen commands --- basically jus say that they
+  retain the type when frozen.}
 
-%% \inferrule[K-Eff]
-%%   {\TyVar(\sigs) \subseteq \kenv}
-%%   {\kindchecksk{[\sigs]}}
-%% %
-%% \end{mathpar}
+\paragraph*{Runtime Syntax}
 
-$\boxed{\infersk{\Gamma}{\sigs}{m}{A}}$
-\begin{mathpar}
-\inferrule[T-Var]
-  {
-   x:A \in \Gamma}
-  {\inferskgs{x}{A}}
+The operational semantics uses the runtime syntax of
+Figure~\ref{fig:runtime-syntax}. The uses and constructions are supplemented
+with a special term $\freeze{\EC[c~\many{R}~\many{w}]}$, of \emph{frozen
+  commands}. We discuss these further later.
 
-\inferrule[T-PolyVar]
-  {% \kindchecks{\kenv, \many{Z}}{A}\\
-   \kindchecksk{\many{R}} \\
-   f:\forall \many{Z}.A \in \Gamma}
-  {\inferskgs{f~\many{R}}{A[\many{R}/\many{Z}]}}
-\\
-\inferrule[T-App]
-  {\sigs' = \sigs \\
-   (\adjact{\sigs}{\adj_i}{\sigs'_i})_i \\\\
-   \inferskgs{m}{\thunk{\many{\effin{\adj}A \to}~ \effout{\sigs'}B}} \\
-   (\checksk{\Gamma}{\sigs'_i}{A_i}{n_i})_i}
-  {\infersk{\Gamma}{\sigs}{m~\many{n}}{B}}
+We distinguish use and construction values, and then further separate
+construction values into uses and non-uses. We also declare a new class of
+\emph{normal forms}, to be used in pattern binding.
 
-\inferrule[T-Ascribe]
-  {\checkskgs{A}{n}}
-  {\inferskgs{\cu (n : A)}{A}}
-%
-\end{mathpar}
-
-$\boxed{\checksk{\Gamma}{\sigs}{A}{n}}$
-\begin{mathpar}
-\inferrule[T-Switch]
-  {\inferskgs{m}{A} \\ A = B}
-  {\checkskgs{B}{\uc m}}
-
-\inferrule[T-Data]
-  {%(\kindchecksk{R_i})_i\\
-   k~\many{A} \in D~\many{R} \\
-   (\checkskgs{A_j}{n_j})_j}
-  {\checkskgs{D~\many{R}}{k~\many{n}}}
-
-\inferrule[T-Command]
-  {\kindchecksk{\many{R}} \\
-   c : \forall \many{Z}.\many{A \to}~ B \in \sigs \\
-   (\checkskgs{A_j[\many{R}/\many{Z}]}{n_j})_j}
-  {\checkskgs{B[\many{R}/\many{Z}]}{c~\many{R}~\many{n}}}
-
-\inferrule[T-Thunk]
-  {\checksdefkg{C}{e}}
-  {\checkskgs{\thunk{C}}{\thunk{e}}}
-
-\inferrule[T-Let]
-  {P = \forall \many{Z}.A \\\\
-   \checkbase{\kenv, \many{Z}}{\sigentails{\emptyset}}{\Gamma}{A}{n} \\
-   \checksk{\Gamma, f : P}{\sigs}{B}{n'}}
-  {\checkskgs{B}{\key{let}~f : P = n~\key{in}~n'}}
-
-\inferrule[T-LetRec]
-  {(P_i = \forall \many{Z}_i.\thunk{C_i})_i \\\\
-   (\checkbase{\kenv, \many{Z}_i}{\vdash}{\Gamma, \many{f : P}}{C}{e_i})_i\\
-   \checksk{\Gamma, \many{f : P}}{\sigs}{B}{n}}
-  {\checkskgs{B}{\key{letrec}~\many{f : P = e}~\key{in}~n}}
-
-\inferrule[T-Adapt]
-  {\adjact{\sigs}{\adapt}{\sigs'} \\ \checksk{\Gamma}{\sigs'}{A}{n}}
-  {\checkskgs{A}{\effin{\adapt}~n}}
-\end{mathpar}
-
-$\boxed{\checksdefkg{C}{e}}$
-\begin{mathpar}
-\inferrule[T-Comp]
-  {(\matchesck{T_j}{r_{i,j}}{\sigs}{\exists \kenva_{i,j}.\Gamma'_{i,j}})_{i,j} \\
-   (\checks{\kenv, (\kenva_{i,j})_j}{\Gamma, (\Gamma'_{i,j})_j}{\sigs}{B}{n_i})_i \\
-   ((r_{i,j})_{i} \text{ covers } T_j)_j}
-  {\checksdefkg{(T_j \to)_j~\effout{\sigs}B}{((r_{i,j})_j \mapsto n_i)_i}}
-\end{mathpar}
-\caption{Term Typing Rules}
-\label{fig:term-typing}
-% \figrule
-\end{figure}
-
-
+Finally we have evaluation contexts, which are sequences of evaluation frames.
+The interesting case is $u~(\many{t}, [~],\many{n})$; it is this that gives us
+left-to-right evaluation of multihandler arguments.
 
 \begin{figure}[t]
 %% \figrule
@@ -988,30 +963,43 @@ $\boxed{\checksdefkg{C}{e}}$
 %% \figrule
 \end{figure}
 
+\paragraph*{Operational Semantics} Finally, the operational semantics are given
+in Figure~\ref{fig:operational-semantics}.
 
+The essential rule here is \textsc{R-Handle}. This relies on a new relations
+regarding \emph{pattern binding} (Figure~\ref{fig:pattern-binding}). We discuss
+these rules in more detail later. $\bindsc{r}{T}{t}{\sigs}{\venv}$ states that
+the computation pattern $r$ of type $T$ and ability $\sigs$ matches the normal
+form $t$ yielding substitution $\venv$. The index $k$ is then the index of the
+earliest ``line'' of pattern matches that all match. The conclusion of the rule
+states that we then perform the substitutions $\many{\venv}$ that we get on the
+return value $n_k$ to get our result. This is given type $B$.
+
+\todo{Tighten up description.}
+
+\textsc{R-Ascribe-Use} and \textsc{R-Ascribe-Cons} remove unneeded conversions
+from use to construction. \textsc{R-Let} and \textsc{R-LetRec} are standard.
+\textsc{R-Adapt} shows that an adaptor applied to a value is the identity.
+
+We have several rules regarding the freezing of commands. When handling a
+command, we need to capture its delimited continuation; that is, the largest
+enclosing evaluation context that does \emph{not} handle it.
+\textsc{R-Freeze-Comm} shows how commands, once used, become frozen;
+\textsc{R-Freeze-Frame-Use} and \textsc{R-Freeze-Frame-Cons} show how the rest
+of the context becomes frozen. These two rules rely on the predicate $\EC
+\textsf{ handles } c$. This is true if the context does indeed handle the
+command $c$; i.e. it is a context of the form $u~(\many{t}, [~], \many{u'})$
+where $u$ is a handler that handles $c$ at the index corresponding to the hole.
+Thus, the whole term is frozen up to the first handler, at which point is it
+handled with \textsc{R-Handle}}.
+
+The $\textsc{R-Lift}$ rules then express that we can perform any of these
+reductions in any evaluation context.
+
+
+\todo{Frozen commands - delimited continuations}
 
 \begin{figure}[t]
-%% \figrule
-\flushleft
-$\boxed{\inferskgs{m}{A}}$ \quad $\boxed{\checkskgs{A}{n}}$
-\begin{mathpar}
-\inferrule[T-Freeze-Use]
-  {\neg(\EC \handles c) \\
-   \inferskgs{\EC[c~\many{R}~\many{w}]}{A}}
-  {\inferskgs{\freeze{\EC[c~\many{R}~\many{w}]}}{A}}
-
-\inferrule[T-Freeze-Cons]
-  {\neg(\EC \handles c) \\
-   \checkskgs{A}{\EC[c~\many{R}~\many{w}]}}
-  {\checkskgs{A}{\freeze{\EC[c~\many{R}~\many{w}]}}}
-\end{mathpar}
-\caption{Frozen Commands}
-\label{fig:frozen-typing}
-%% \figrule
-\end{figure}
-
-
-\begin{figure}
 %% \figrule
 \flushleft
 $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
@@ -1079,10 +1067,13 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 \end{mathpar}
 
 \caption{Operational Semantics}
-\label{fig:small-step}
+\label{fig:operational-semantics}
 %% \figrule
 \end{figure}
 
+\paragraph*{Pattern Binding}
+
+We now discuss the pattern binding rules of Figure~\ref{fig:pattern-binding}.
 
 \begin{figure}[t]
 %% \figrule
@@ -1105,7 +1096,7 @@ $\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
     (\bindsv{p_i}{B_i}{w_i}{\venv_i})_i}
     {\bindsc{\effin{c~\many{p} \to z}}{\effin{\adj}A}
     {\freeze{\EC[c~\many{R}~\many{w}]}}{\sigs}{\many{\venv}[\cu (\thunk{x \mapsto \EC[x]} : \thunk{B' \to \effout{\sigs'}A})/z]}}
-
+\\
 \inferrule[B-CatchAll-Value]
   {\adjact{\sigs}{\adj}{\sigs'}}
   {\bindsc{\effin{x}}{\effin{\adj}A}{w}{\sigs}{[\cu (\thunk{w}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
@@ -1574,7 +1565,9 @@ Thus our example from before becomes;
 \section{Soundness}
 
 We now state the soundness property for our extended system, as well as the
-subject reduction theorem needed for this proof.
+subject reduction theorem needed for this proof. Our system is nothing more than
+the system of \cite{convent2020doo} with extra rules; as such we omit most of
+the details.
 
 %% \begin{restatable}[Subject Reduction]{theorem}{subred}\label{thm:sub-red}
 %%   \\
@@ -1593,7 +1586,27 @@ subject reduction theorem needed for this proof.
   \end{theorem}
 
 \begin{proof}
-By induction on the transitions.... \todo{Finish this}
+By induction on the transitions $\redtou, \redtoc$.\todo{Finish this; addition of
+new yielding rule.}
+\end{proof}
+
+\begin{theorem}[Type Soundness]\label{thm:soundness}
+\begin{itemize}
+\\
+\item If $\infers{\cdot}{\cdot}{\sigs}{m}{A}$ then either $m$ is a normal form
+  such that $m$ respects $\sigs$ or there exists a unique
+  $\infers{\cdot}{\cdot}{\sigs}{m'}{A}$ such that $m \stepstou m'$.
+\item If $\checks{\cdot}{\cdot}{\sigs}{A}{n}$ then either $n$ is a normal form
+  such that $n$ respects $\sigs$ or there exists a unique
+  $\checks{\cdot}{\cdot}{\sigs}{A}{n'}$ such that $n \stepstoc n'$.
+\end{itemize}
+%% In particular, if $\sigs = \nowt$ then either the term is a value $w$ or the
+%% term can reduce by one step.
+\end{theorem}
+
+\begin{proof}
+The proof proceeds by simultaneous induction on
+$\infers{\cdot}{\cdot}{\sigs}{m}{A}$ and $\checks{\cdot}{\cdot}{\sigs}{A}{n}$.
 \end{proof}
 
 
@@ -1695,7 +1708,7 @@ promises can themselves invoke other promises.
 
 \todo{Flesh this out, rewrite it}
 
-\subsection{Handling}
+\paragraph*{Threads}
 
 %% In order to handle these operations, we need to maintain the state of the
 %% executing threads somewhere; when we stop executing a thread we store its status
@@ -1712,6 +1725,165 @@ installation. Installing a promise is as straightforward as pushing it
 onto the corresponding thread's promise stack.
 
 
+\begin{lstlisting}
+data Threads <@\greytext{[E]}@> =
+    tentry Int
+           {<@\greytext{[E| RefState, Yield]}@> Unit}
+           (TStack {Sig -> {<@\greytext{[E| RefState, Yield]}@> Unit}
+                        -> <@\greytext{[E| RefState, Yield]}@> Maybe {<@\greytext{[E| RefState, Yield]}@> Unit}})
+           (Threads [E|])
+    | tnil
+\end{lstlisting}
+
+This collection is realised in Frank as the \code{Threads} datatype. It is
+essentially just an integer map, where keys are the thread IDs and the values
+are the trio of the thunked computation thus far, the stack of installed
+promises at this thread, and then the rest of the map.
+
+The type of things called in the stack is not what we would expect. Recall that
+the type of Promises is \code{Sig -> Maybe {R}}, yet the promises stored here
+are of type \code{Sig -> {Unit} -> Maybe {Unit}}. We address this in Section
+\ref{sec:handling-promises}, where it will become clearer.
+
+\section{Handling Promises}
+\label{sec:handling-promises}
+
+We now introduce the handler for \code{Promise} effects. The type of this comes
+as no surprise;
+
+\begin{lstlisting}
+hdl : {Int -> Ref (Threads <@\greytext{[E|]}@>)
+    -> <Promise<@\greytext{[E|]}@>> Unit
+    -> <@\greytext{[E| RefState, Yield]}@> Unit}
+\end{lstlisting}
+
+The first argument is the id of the thread being handled. The second one is a
+reference to the globally stored threads. These are parametrised by the effects
+performed in the promises, just like the \code{Promise} interface. The third
+argument is the thread itself, which performs \code{Promise} operations.
+Finally, the return type expresses that this code can perform any of the effects
+that the promises perform, plus \code{RefState} effects; the \code{Yield}
+encodes that this can be interrupted (as in Chapter~\ref{chap:pre-emption}).
+
+\begin{lstlisting}[numbers=left]
+hdl thId thrs <promise (prom cb) -> k> =
+    let cell = pid (new waiting) in
+    let cbMod = (to_write cell cb) in
+    let cbMaybe = {sig rest -> case (cbMod sig)
+          { nothing -> nothing
+          | (just susp) -> just { hdl thId thrs susp!; <@\greytext{<Promise>}@> rest!} }} in
+    let queued = (addCb thId cbMaybe (read thrs)) in
+    let res = {hdl thId thrs (k cell)} in
+    write thrs (writeThk thId res queued);
+    res!
+\end{lstlisting}
+
+Above we see the handler for \code{promise}. This is the process of installing a
+promise, onto the currently executing thread's stack. Line 2 creates a new
+reference cell for the promise id; this is initialised to \code{waiting}, as
+nothing has been performed yet. Line 3 calls the utility function
+\code{to_write}. This takes a callback of type \code{S -> R} and converts it to
+type \code{S -> [RefState]Unit}; it modifies it to always return unit but write
+its value to the \code{Pid} cell. Having all promises as the same type makes
+storing them in one data structure possible. In lines 4-6 we convert our promise
+to one that takes into account the computation after we've run the promise as
+well. This is essential to get blocking via \code{await} to work properly when
+running a promise, which is important for pre-emptive concurrency and other
+applications. \todo{Go into more depth about this}.
+
+Lines 7 to 10 are then mainly housekeeping. We write this modified promise into
+the stack, update the execution state thus far and then continue handling the
+thread.
+
+\todo{Is all of the business with writing the rest of the callback needed?}
+
+\todo{It's not - can remove it. }
+
+\begin{lstlisting}
+hdl thId thrs <signal sig -> thr> =
+    let newThrs = (runThreads sig (read thrs)) in
+
+    write thrs newThrs;
+    hdl thId thrs (thr unit)
+\end{lstlisting}
+
+When a signal comes in, we need to try and execute \emph{all} of the installed
+promises, for every thread. To do this we use the \code{runThreads} function,
+which calls the below function for all threads;
+
+\begin{lstlisting}
+runThread sig (trio susp cbs skipped) =
+    case (dequeue cbs)
+        { nothing -> trio susp cbs skipped
+        | (just (pair cb cbs)) ->
+              case (cb sig susp)
+                  { nothing -> runThread sig (trio susp cbs (enqueue cb skipped))
+                  | (just susp2) -> runThread sig (trio susp2 cbs skipped)}}
+\end{lstlisting}
+
+\noindent We first check to see if there are any installed promises remaining.
+If there is, we run the promise with the signal supplied. Recall that the type
+of the callbacks is \code{Sig -> \{Unit\} -> \{R\}}; we have to also supply the
+callbacks with the thunked computation so far. Again, this is important to
+correctly implement blocking. If the callback returns \code{nothing} we do not
+evaluate it and we reinstall it afterwards, by putting it onto the ``skipped''
+stack.
+
+Once promise execution is finished we update the state of \code{thrs} and resume
+handling, restarting the continuation \code{thr} with \code{unit} immediately.
+
+\begin{lstlisting}
+hdl thId thrs <await cell -> thr> =
+    case (readPid cell)
+        { (done x) ->
+            hdl thId thrs (thr x)
+        | waiting ->
+            writePid cell (resume thr);
+            hdl thId thrs unit }
+\end{lstlisting}
+
+Handling \code{await} is surprisingly the simplest of the lot. Recall that
+\code{await} takes a promise id cell \code{Pid R} and returns a value of type
+\code{R}. The handler looks inside this cell; if there is a finished value there
+already (\code{done x}) it resumes the continuation with this value. If the
+promise has not yet completed, we then write the resumption (which is of type
+\code{\{R -> Unit\}}) to the cell. The function \code{to_write} used when
+installing promises changes the original promise to resume the continuation
+stored in \code{Pid}, if there is one present.
+
+\todo{Should probably show to_write.}
+
+\section{Multithreading}
+
+We now show how we can easily introduce multithreading to our system. Observe
+that we are yet to have a handler for any \code{yield} commands. We can handle
+them, yielding co-operative concurrency in the same style as
+Section~\ref{sec:concurrency}, like so;
+
+\begin{lstlisting}[numbers=left]
+scheduleT : {<Yield> Unit -> Int -> Ref (Threads <@\greytext{[E|]}@>) -> <@\greytext{[E| RefState]}@>Unit}
+scheduleT <yield -> k> cur thrs =
+    let next = nextId cur (keys (read thrs)) in
+    let newThk = lookupThk next (read thrs) in
+    let newThrs = writeThk cur {k unit} (read thrs) in
+    write thrs newThrs;
+    scheduleT newThk! next thrs
+
+scheduleT unit cur thrs = scheduleT yield! cur thrs
+\end{lstlisting}
+
+\noindent Recall that the threads are stored with a thread id, an integer. We use these in
+our simple scheduling strategy, where we just cycle through all ids in ascending
+order. Line 3 finds the id of the next thread as per this strategy, and line 4
+looks up the thunk from the threads structure. Line 5 then writes the current
+thread's continuation to the structure. Line 6 writes the updated version of the
+threads and then line 7 starts executing the next continuation. Line 9 states
+that if a thread's value is unit we just force a yield. This is useful if a
+thread is e.g. blocked and waiting for a promise to fulfill, as we will
+straightaway stop processing it and start the next one.
+
+\todo{Talk about how we're still tied into the threads structure; disadvantage}
+
 \chapter{Examples}
 \label{chap:examples}
 
@@ -1720,7 +1892,7 @@ onto the corresponding thread's promise stack.
 An essential feature of our asynchronous effects system is that it supports
 pre-emptive concurrency; that is, the suspension and resumption of threads
 non-cooperatively. Naturally, this relies on the insertion of yields as
-discussed in Chapter \ref{chap:preemption}.
+discussed in Chapter~\ref{chap:preemption}.
 
 We supplement the signals supported in our program with two more;
 
@@ -1868,6 +2040,49 @@ that this doesn't cause the whole program to block.
 
 \todo{Example of how it gets used.}
 
+\section{Futures}
+\label{sec:futures}
+
+Our developed asynchronous effects system is expressive enough to implement the
+asychronous post-processing of results, or \emph{futures}, on top of what we
+already have. Previously these have had to be implemented as a separate language
+feature. \todo{Reference for being a separate feature!}
+
+Futures are useful if we want to asynchronously perform some action once another
+promise has been completed. In the context of a web application, this might be
+updating the application's display once some remote call for data has finished.
+Observe that this differs from just awaiting the remote call and then updating
+once we have this; we do not want to block everything else from running, but
+want to perform this action asynchronously, when the promise is complete.
+
+\begin{lstlisting}
+futureList : {Pid R <@\greytext{[E|]}@> -> {R -> <@\greytext{[E|]}@> Z} -> Sig -> Maybe {<@\greytext{[E|]}@> Z}}
+futureList p comp (listSig _) =
+    just { let res = await p in comp res}
+futureList _ _ _ = nothing
+\end{lstlisting}
+
+\noindent When calling \code{futureList} we supply a promise of result type
+\code{R} and a computation of type \code{R -> Z}. We then await the promise, and
+once we have a value (of type \code{R}) run the computation with this. An
+example computation using this system is;
+
+\begin{lstlisting}
+let recv = promise { (listSig xs) -> just {xs} | _ -> nothing} in
+let prod = promise {s -> futureList filt product s} in
+promise {s -> futureList prod {x -> signal (resultSig x)} s}
+\end{lstlisting}
+
+\noindent Where we, upon receipt of a list signal, take the product of the list
+element-wise and send another signal with this result. All three of these
+promises are triggered by the same signal; \code{recv} is executed first, which
+then executes \code{prod}, which then lets the final one run. This behaviour
+depends on signals being able to execute many promises at once (that is,
+behaving like \emph{deep} rather than shallow handlers).
+
+
+
+
 \chapter{Conclusion}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1889,6 +2104,97 @@ that this doesn't cause the whole program to block.
 
 \chapter{Remaining Formalisms}
 
+\begin{figure} % \figrule
+\flushleft
+%% $\boxed{\kindchecksk{R}}$
+%% \begin{mathpar}
+%% \inferrule[K-Val]
+%%   {\TyVar(A) \subseteq \kenv}
+%%   {\kindchecksk{A}}
+
+%% \inferrule[K-Eff]
+%%   {\TyVar(\sigs) \subseteq \kenv}
+%%   {\kindchecksk{[\sigs]}}
+%% %
+%% \end{mathpar}
+
+$\boxed{\infersk{\Gamma}{\sigs}{m}{A}}$
+\begin{mathpar}
+\inferrule[T-Var]
+  {
+   x:A \in \Gamma}
+  {\inferskgs{x}{A}}
+
+\inferrule[T-PolyVar]
+  {% \kindchecks{\kenv, \many{Z}}{A}\\
+   \kindchecksk{\many{R}} \\
+   f:\forall \many{Z}.A \in \Gamma}
+  {\inferskgs{f~\many{R}}{A[\many{R}/\many{Z}]}}
+\\
+\inferrule[T-App]
+  {\sigs' = \sigs \\
+   (\adjact{\sigs}{\adj_i}{\sigs'_i})_i \\\\
+   \inferskgs{m}{\thunk{\many{\effin{\adj}A \to}~ \effout{\sigs'}B}} \\
+   (\checksk{\Gamma}{\sigs'_i}{A_i}{n_i})_i}
+  {\infersk{\Gamma}{\sigs}{m~\many{n}}{B}}
+
+\inferrule[T-Ascribe]
+  {\checkskgs{A}{n}}
+  {\inferskgs{\cu (n : A)}{A}}
+%
+\end{mathpar}
+
+$\boxed{\checksk{\Gamma}{\sigs}{A}{n}}$
+\begin{mathpar}
+\inferrule[T-Switch]
+  {\inferskgs{m}{A} \\ A = B}
+  {\checkskgs{B}{\uc m}}
+
+\inferrule[T-Data]
+  {%(\kindchecksk{R_i})_i\\
+   k~\many{A} \in D~\many{R} \\
+   (\checkskgs{A_j}{n_j})_j}
+  {\checkskgs{D~\many{R}}{k~\many{n}}}
+
+\inferrule[T-Command]
+  {\kindchecksk{\many{R}} \\
+   c : \forall \many{Z}.\many{A \to}~ B \in \sigs \\
+   (\checkskgs{A_j[\many{R}/\many{Z}]}{n_j})_j}
+  {\checkskgs{B[\many{R}/\many{Z}]}{c~\many{R}~\many{n}}}
+
+\inferrule[T-Thunk]
+  {\checksdefkg{C}{e}}
+  {\checkskgs{\thunk{C}}{\thunk{e}}}
+
+\inferrule[T-Let]
+  {P = \forall \many{Z}.A \\\\
+   \checkbase{\kenv, \many{Z}}{\sigentails{\emptyset}}{\Gamma}{A}{n} \\
+   \checksk{\Gamma, f : P}{\sigs}{B}{n'}}
+  {\checkskgs{B}{\key{let}~f : P = n~\key{in}~n'}}
+
+\inferrule[T-LetRec]
+  {(P_i = \forall \many{Z}_i.\thunk{C_i})_i \\\\
+   (\checkbase{\kenv, \many{Z}_i}{\vdash}{\Gamma, \many{f : P}}{C}{e_i})_i\\
+   \checksk{\Gamma, \many{f : P}}{\sigs}{B}{n}}
+  {\checkskgs{B}{\key{letrec}~\many{f : P = e}~\key{in}~n}}
+
+\inferrule[T-Adapt]
+  {\adjact{\sigs}{\adapt}{\sigs'} \\ \checksk{\Gamma}{\sigs'}{A}{n}}
+  {\checkskgs{A}{\effin{\adapt}~n}}
+\end{mathpar}
+
+$\boxed{\checksdefkg{C}{e}}$
+\begin{mathpar}
+\inferrule[T-Comp]
+  {(\matchesck{T_j}{r_{i,j}}{\sigs}{\exists \kenva_{i,j}.\Gamma'_{i,j}})_{i,j} \\
+   (\checks{\kenv, (\kenva_{i,j})_j}{\Gamma, (\Gamma'_{i,j})_j}{\sigs}{B}{n_i})_i \\
+   ((r_{i,j})_{i} \text{ covers } T_j)_j}
+  {\checksdefkg{(T_j \to)_j~\effout{\sigs}B}{((r_{i,j})_j \mapsto n_i)_i}}
+\end{mathpar}
+\caption{Term Typing Rules}
+\label{fig:term-typing}
+% \figrule
+\end{figure}
 
 \begin{figure}%% \figrule
 \flushleft
@@ -1954,7 +2260,25 @@ $\boxed{\itrinst{\ienv}{S}{\sig}{\ext}}$
 %% \caption{Action of an Adaptor's Interface Component on an Ability}
 \label{fig:interface-components}
 
+\begin{figure}[t]
+%% \figrule
+\flushleft
+$\boxed{\inferskgs{m}{A}}$ \quad $\boxed{\checkskgs{A}{n}}$
+\begin{mathpar}
+\inferrule[T-Freeze-Use]
+  {\neg(\EC \handles c) \\
+   \inferskgs{\EC[c~\many{R}~\many{w}]}{A}}
+  {\inferskgs{\freeze{\EC[c~\many{R}~\many{w}]}}{A}}
 
+\inferrule[T-Freeze-Cons]
+  {\neg(\EC \handles c) \\
+   \checkskgs{A}{\EC[c~\many{R}~\many{w}]}}
+  {\checkskgs{A}{\freeze{\EC[c~\many{R}~\many{w}]}}}
+\end{mathpar}
+\caption{Frozen Commands}
+\label{fig:frozen-typing}
+%% \figrule
+\end{figure}
 
 \caption{Action of an Adjustment on an Ability and Auxiliary Judgements}
 \label{fig:act-adj}
