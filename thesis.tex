@@ -1517,7 +1517,7 @@ be unable to interrupt it; it does not invoke commands.
 
 As such, we need to further change the pattern binding rules of Figure
 \ref{fig:pattern-binding}. This is to let us interrupt arbitrary computation
-terms. In Figure \ref{fig:runtime-syntax-updated}, we see an updated version of
+terms. In Figure \ref{fig:runtime-syntax-freeze}, we see an updated version of
 the runtime syntax; this allows for the suspension of arbitrary \emph{uses},
 essentially just function applications.
 
@@ -1609,7 +1609,7 @@ is then bound to $x$, in a similar way to other \textsc{B-CatchAll} rules.
 %% \\
 \inferrule[R-Interrupt]
   { }
-  {m \redtou \interrupt{m}}
+  {m \redtou \freeze{m}}
 %% \\
 \end{mathpar}
 
@@ -1641,6 +1641,99 @@ longer reduce; it is blocked until it is resumed by the \textsc{R-Handle} rule.
 
 \todo{Talk about non-determinism as a result of this}
 \todo{Maybe move non-determinism to the next section?}
+
+
+\section{Yielding}
+
+Observe that the approach of Section \ref{sec:relaxingcatches} can only
+interrupt command invocations. If \code{runner} were instead a sequence of pure
+computations\footnote{I.e. \code{runner! = 1 + 1; 1 + 1; 1 + 1; ...}}, we would
+be unable to interrupt it; it does not invoke commands. In this section we show
+how we can easily interrupt \emph{arbitrary terms}, without defining any special
+new syntax or constructions. Furthermore, we do this in a
+way that lets the programmer choose how to resume the term, without being set in
+stone.
+
+Recall the simple \textsf{Yield} effect from Section~\ref{sec:concurrency}; it
+supports one operation, $\textsf{yield} : \textsf{Unit}$. Its primary use is to
+give the programmer access to the continuation so that they might perform some
+scheduling or other control flow operations. Our solution is simple; whenever we
+are in an evaluation context where the ability contains the \textsf{Yield}
+effect, we insert an invocation of \textsf{yield} before the term in question.
+This is expressed formally in Figure~\ref{fig:insert-yield}.
+
+\todo{Do we need to worry about conversion from Use -> Constrction}
+
+\begin{figure}[h]
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} $
+\begin{mathpar}
+%
+%
+\inferrule[R-Yield-EF]
+          { \EF[\EC]~\textsf{allows}~\textsf{Yield} }
+          { \EF[\EC[m]] \redtou \EF[\EC[\textsf{yield!}; m]] }
+\end{mathpar}
+%
+%
+\caption{Inserting Yields}
+\label{fig:insert-yield}
+%% \figrule
+\end{figure}
+
+%% We explain \textsc{R-Yield} here. Given a suspended construction $\thunk{n}$,
+%% which has been ascribed the type $\thunk{[\sigs]A}$, we produce a new function
+%% $f_n$ which takes a value of type $\textsf{Unit}$ and returns the original term
+%% $n$, and a thunk $y$ which is just $\textsf{yield!}$ suspended. Note that we
+%% write $\textsf{yield}!$ for the 0-ary invocation of the command
+%% $\textsf{yield}$. We then apply this constructed function $f_n$ to $y!$; note
+%% that because the interface $\textsf{Yield}$ is a member of the ability $\sigs$
+%% this is well-typed.
+
+Note that \textsc{R-Yield-EF} relies on the predicate
+$\EF[\EC]~\textsf{allows}~c$. This states that the \textsf{Yield} interface is
+in the ability of the term in the evaluation context. For any frame apart from
+argument frames, $\EF[\EC]~\textsf{allows}~c = \textsf{false}$. In this case, it
+is defined as follows;
+
+\begin{equations}
+  \cu (v : \thunk{\many{\effin{\adj} A
+      \to}~\effout{\sigs}B})~(\many{t},[~],\many{n})~\textsf{allows}~c =
+          \left\{ \ba{@{}l@{\quad}l@{}}
+          \ext~\textsf{allows}~c & \text{if } |\many{n}| = 0~\text{ where } \sigs =~\seed\pipe\ext \\
+          \textsf{false} & \text{otherwise}
+          \right.
+\end{equations}
+
+
+\noindent For an extension $\ext$, the \textsf{allows} predicate is defined as
+
+\begin{equations}
+  \id~\textsf{allows}~c &=& \textsf{false} \\
+  (\ext, \sig~\many{R})~\textsf{allows}~c &=&
+      \left\{ \ba{@{}l@{\quad}l@{}}
+      \textsf{true} & \text{if } c\in\sig \\
+      \ext~\textsf{allows}~c & \text{otherwise}
+      \right.
+\end{equations}
+
+\noindent Informally, $\EF[\EC]~\textsf{allows}~c$ is true when $\EF[\EC]$ is a
+handler with the command $c$ as a member of an interface in its ability,
+\emph{and} all of the arguments have been evaluated (this is what the
+$|\many{n}| = 0$ constraint expresses).
+
+We also make use of an auxilary combinator $\_ ; \_$. This is the traditional
+sequential composition operator, where both arguments are evaluated and hte
+result of the second one is returned. In the context of \textsc{R-Yield-EF} this
+means we will perform the \textsf{yield} effect and then the use $m$, but
+discard the result from \textsf{yield}.
+
+Observe that this gives us fine-grained control over which parts of our program
+become asynchronous. One might want a short-running function to not be
+pre-emptible and just run without pause; conversely, one might want a
+long-running function to be interruptible. The programmer gets to choose this by
+labelling the functions with \textsf{Yield} in the ability.
 
 
 

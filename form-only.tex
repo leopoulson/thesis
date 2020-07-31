@@ -86,6 +86,12 @@
 %% Start of inference rules typesetting business
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\newcommand{\counter}{c_y}
+\newcommand{\justc}[1]{c({#1})}
+\newcommand{\yieldc}{\textsf{yield}}
+\newcommand{\plusc}{+_c}
+\newcommand{\threshc}{t_y}
+
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 
 \newcommand{\todo}[1]
@@ -1160,6 +1166,107 @@ $\boxed{m \redtou m'} $
 \label{fig:insert-yield-counting}
 %% \figrule
 \end{figure}
+
+
+\section{Counting --- Take Two}
+
+
+In the final semantics we count up through the number of \textsc{R-Handle} uses.
+This lets us track when to next insert a yield.
+
+We use a counter for this, labelled $\counter$ in the semantics. This counter
+essentially has two states; it is either simply counting, i.e. is $\justc{n}$
+for some $n$ or is a message to yield as soon as possible, i.e. $\yieldc$.
+
+To increment this counter, we use a slightly modified version of addition,
+denoted $\plusc$. This is simply defined as
+
+\begin{equations}
+  x \plusc y =
+          \left\{ \ba{@{}l@{\quad}l@{}}
+              \justc{x + y} & \text{if } x + y \leq \threshc \\
+              \yieldc & \text{otherwise}
+          \right.
+\end{equations}
+
+\noindent where $\threshc$ is the threshold at which we force a yield. Thus the
+updated semantics for \textsc{R-Handle} follows.
+
+\todo{Talk about how everything else implicitly just passes by; only if the
+  counter is in the form $\justc{n}$.}
+
+\textsc{R-Handle-Count} in Figure~\ref{fig:r-handle-counting-2} expresses that
+when handling, if our counter is of the form $\justc{n}$ --- i.e. we do not have
+to yield --- we perform the handling step as usual and increment the counter,
+potentiall yielding if we need to. \textsc{R-Yield-Can} in
+Figure~\ref{fig:insert-yield-counter} expresses that if the counter is in the
+form $\yieldc$ and the evaluation context allows us to yield then we \emph{must}
+yield, and reset the counter to 0. \textsc{R-Yield-Can't} says that if the
+evaluation context does not permit yielding, but $m$ would otherwise reduce to
+some term $m'$, then we perform that reduction inside the context. This is
+important; we do not block the rest of the code from reducing if we need to
+yield. The programmer may of course never want to yield; they may want their
+system to remain fully synchronous. As such they can simply never write the
+\textsf{Yield} interface in their program anywhere and the program will not
+yield.
+
+The rest of the operational semantics remains the same. We adopt the syntactic
+sugar that any non-labelled transition $m \redtou m'$ (resp. $\redtoc$) is
+shorthand for $m; \justc{n} \redtou m'; \justc{n}$; that is, it only applies
+when the counter is plain and non-blocking, and it leaves the counter
+unmodified.
+
+\begin{figure}
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+\inferrule[R-Handle-Count]
+  {% The type system should enforce this!
+   %(\handles{\adj_j}{t_j})_j \\
+   k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+   (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}}
+   %% \forall i < k.\exists j.r_{i, j} \# t_j}
+   %% l \text{~is minimal}}
+  {\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}; \highlight{\justc{n}}
+    \redtou
+    \cu ((\many{\venv}(n_k) : B)); \highlight{n \plusc 1}}
+
+\\
+
+\caption{\textsf{R-Handle} with better counting.}
+\label{fig:r-handle-counting-2}
+%% \figrule
+\end{figure}
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+$\boxed{m \redtou m'} $
+\begin{mathpar}
+\inferrule[R-Yield-Can]
+          { \EF[\EC]~\textsf{allows}~\textsf{Yield} }
+          { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[\textsf{yield!}; m]]; \justc{0} }
+\\
+\inferrule[R-Yield-Can't]
+          { \neg (\EF[\EC]~\textsf{allows}~\textsf{Yield}) \\
+            m; \justc{n} \redtou m'; c' }
+          { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[m]]; \yieldc }
+\\
+
+\end{mathpar}
+
+\caption{Inserting Yields when forced to.
+  }
+\label{fig:insert-yield-counter}
+%% \figrule
+\end{figure}
+
+
+
+
 
 
 %% \bibliographystyle{plain}
