@@ -482,6 +482,33 @@ over some more traditional aspects of the language --- algebraic data types,
 pattern matching, etc --- so we can spend more time with the novel, interesting
 parts of the language.
 
+\section{Types, Values and Operators}
+
+Frank types are distinguished between \emph{effect types} and \emph{value
+  types}. Value types are the standard notion of type; effect types are
+used to describe where certain effects can be performed and handled.
+
+Value types are further divided into traditional data types, such a \code{Bool},
+\code{List X}, and \emph{computation types}. Computation types are used to
+define an operator; they come in the general form \code{\{<Effect> X -> ... ->
+  [Effects] Y\}}. This type expresses that the operator can handle some effect
+in the first argument and then performs some other effects as a result,
+returning a value of type \code{Y}.
+
+Frank then specialises effect handling to traditional function application; a
+function is the special case of an operator that handles no arguments. We see
+that a function type \code{\{X -> Y -> Z\}} is just a special case of the
+general operator type where no effects are handled or performed. Throughout this
+thesis, we call
+
+Thunks then are the special case of an $n$-ary function that takes 0 arguments.
+A thunk, being a suspended computation, that will result in a value of type
+\code{Bool} has type \code{\{Bool\}}. This gives us fine-grained control over
+executing computations, and also translates to control over when to execute
+effects; this proves to be very useful later.
+
+\todo{Example --- maybe fire missiles one?}
+
 \section{Effects and Effect Handling}
 
 \paragraph*{Interfaces and Operations}
@@ -493,6 +520,8 @@ operations (commands), \code{get} and \code{put}. In Frank, this translates to
 \begin{lstlisting}
   interface State X = get : X
                     | put : X -> Unit
+
+  interface RandInt = random : Int
 \end{lstlisting}
 
 The type signatures of the operations mean that \code{get} is a 0-ary operation
@@ -543,12 +572,102 @@ being executed by the interpreter, and that \code{runState} has control over the
   -> [State Int] Unit}. We see that \code{runState} chooses to resume this
 continuation with the value of the state at that time.
 
+\paragraph*{Effect Forwarding}
+
+Effects that are not handled by a particular handler are left to be forwarded up
+to the next highest one. For instance, we might want to write a random number to
+the state;
+
+\begin{lstlisting}
+  xplusrand : {[State Int, RandomInt] Unit}
+  xplusrand! = put (random!)
+\end{lstlisting}
+
+\noindent We then have to handle both the \code{State Int} and \code{Random}
+effect in this computation. Of course, we could just define one handler for both
+effects; however in the interests of \emph{modularity} we want to define two
+different handlers for each effect and \emph{compose} them. We can reuse the
+same \code{runState} handler from before, and define a new handler for
+\code{RandomInt};
+
+\begin{lstlisting}
+  runRand : {Int -> <RandomInt> X -> X}
+  runRand seed <random -> k> = runRand (mod (seed + 7) 10) (k seed)
+  runRand _ x = x
+\end{lstlisting}
+
+\noindent And compose them in the comfortable manner, by writing \code{runRand
+  (runState xplusrand!)}.
+
+\todo{Maybe show example of how the order of composition can change the ending
+  semantics --- a la state + aborting}
+
 \paragraph*{Top-Level Effects}
 Some effects need to be handled outside of pure Frank, as Frank is not
 expressive or capable enough on its own. Examples are console I/O, web requests,
-and ML-style state cells.
+and ML-style state cells. These effects will pass through the whole stack of
+handlers up to the top-level, at which point they are handled by the
+interpreter.
 
-These are handled by the interpreter.
+
+
+
+
+
+\paragraph*{Implicit Effect Polymorphism}
+
+Consider the type of the well-known function \code{map} in Frank;
+
+\begin{lstlisting}
+  map : {{X -> Y} -> List X -> List Y}
+  map f [] = []
+  map f (x :: xs) = (f x) :: (map f xs)
+\end{lstlisting}
+
+\noindent One might expect that the program \code{map \{_ -> random!\} [1, 2, 3]}
+would give a type error; we are mapping a function of type \code{\{Int ->
+  [RandomInt] Int\}}, which does not match the argument type \code{\{X -> Y\}}.
+However, Frank uses a shorthand for \emph{implicit effect variables}. The
+desugared type of \code{map} is actually
+
+\begin{lstlisting}[mathescape]
+  map : {{X -> [$\epsilon$|] Y} -> List X -> [$\epsilon$|] List Y}
+\end{lstlisting}
+
+\noindent This type expresses that whatever the ability is of \code{map f xs} will be
+offered to the element-wise operator \code{f}. As such, the following
+typechecks;
+
+\begin{lstlisting}
+  writeRand : {List Int -> [RandomInt] List Int}
+  writeRand xs = map {_ -> random!} xs
+\end{lstlisting}
+
+\todo{Talk about deliberately stopping this}
+
+\todo{Talk about what the bar means. }
+
+A similar thing happens in interface declarations. We might define the
+\code{Choose} effect, which non-deterministically asks for one of two
+computations to be picked for it to continue with;
+
+\begin{lstlisting}
+  interface Choose X =
+      choose : {[Choose X] X} -> {[Choose X] X} -> X
+\end{lstlisting}
+
+\noindent This definition desugars to
+
+\begin{lstlisting}[mathescape]
+  interface Choose X [$\epsilon$] =
+      choose : {[$\epsilon$| Choose X] X} -> {[$\epsilon$| Choose X] X} -> X
+\end{lstlisting}
+
+\noindent Once again, an implicit effect variable is inserted in every ability
+available.
+
+
+
 
 \paragraph*{Synchronicity and Conversations}
 Observe how the interaction between the effect invoking function and the handler
@@ -558,7 +677,7 @@ response. This can be characterised as \emph{synchronous} effect handling.
 
 But what if we want to make a request for information, then do something else,
 then pick up the result later when we need it? This is the canonical example of
-asynchronous programming. It is not as simple as just invoking our e.g.
+asynchronous programming. It is not as simple as just invoking our e|.g.
 \code{getRequest} effect; computation would block once this is invoked, meaning
 we are stuck waiting for the request to return.
 
@@ -634,7 +753,7 @@ caught by another handler, which can implement a recovery strategy.
 \paragraph*{Polymorphic Commands}
 
 As well as having polymorphic interfaces, such as \code{State X}, parametrised
-by e.g.~the data stored in the state, Frank supports polymorphic
+by e|.g.~the data stored in the state, Frank supports polymorphic
 \emph{commands}. These are commands which can be instantiated for any type. An
 example is ML-style references, realised through the \code{RefState} interface;
 
@@ -647,7 +766,7 @@ example is ML-style references, realised through the \code{RefState} interface;
 \noindent For instance, \code{new X} can be instantiated by supplying a value as
 an argument. A \code{Ref X} cell is then returned as answer.
 
-\section{Concurrency}
+\section{Cooperative Concurrency}
 \label{sec:concurrency}
 
 Frank is a single-threaded language. It is fortunate, then, that effect handlers
@@ -811,7 +930,7 @@ the language in this section.
 \begin{syn}
   \slab{data types}            & D \\
   \slab{value type variables}  & X \\
-  \slab{effect type variables} & E \\
+  \slab{effect type variables} & E| \\
   \slab{value types}           & A, B   &::= & D~\overline{R} \\
                                &        &\gor& \thunk{C} \gor X \\
   \slab{computation types}     & C      &::= & \many{T \to}~G \\
