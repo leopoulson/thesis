@@ -69,7 +69,14 @@
 \usepackage{mathtools} % allows flush-left align environments and paired
                        % delimiters.
                        %
-
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black,
+    urlcolor=black
+}
 
 % Theorem environments
 \newtheorem{theorem}{Theorem}
@@ -97,6 +104,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\newcommand{\counter}{c_y}
+\newcommand{\justc}[1]{c({#1})}
+\newcommand{\yieldc}{\textsf{yield}}
+\newcommand{\plusc}{+_c}
+\newcommand{\threshc}{t_y}
 
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 
@@ -1257,8 +1272,8 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 
 
 
-\chapter{Pre-emption}
-\label{chap:pre-emption}
+\chapter{Pre-emptive Concurrency}
+\label{chap:preemptive-concurrency}
 
 \section{Motivation}
 \label{sec:interrupt-motivation}
@@ -1644,6 +1659,7 @@ longer reduce; it is blocked until it is resumed by the \textsc{R-Handle} rule.
 
 
 \section{Yielding}
+\label{sec:inserting-yields}
 
 Observe that the approach of Section \ref{sec:relaxingcatches} can only
 interrupt command invocations. If \code{runner} were instead a sequence of pure
@@ -1723,11 +1739,20 @@ handler with the command $c$ as a member of an interface in its ability,
 \emph{and} all of the arguments have been evaluated (this is what the
 $|\many{n}| = 0$ constraint expresses).
 
-We also make use of an auxilary combinator $\_ ; \_$. This is the traditional
-sequential composition operator, where both arguments are evaluated and hte
-result of the second one is returned. In the context of \textsc{R-Yield-EF} this
-means we will perform the \textsf{yield} effect and then the use $m$, but
-discard the result from \textsf{yield}.
+\todo{Do we even need the restriction that $|\many{n}| = 0$?}
+
+We also make use of an auxiliary combinator $\_ ; \_$. This is the traditional
+sequential composition operator $\textsf{snd}~x~y~\mapsto~y$, where both
+arguments are evaluated and the result of the second one is returned. We see
+that it would be a type error if we were to insert a \code{yield} command in a
+context where \textsf{yield} was not a part of the ability.
+
+\todo{Maybe elaborate on this --- give the type for \textsf{snd}, give the
+  typing deriviation to show that insertion is well typed?}
+
+In the context of \textsc{R-Yield-EF} this means we will perform the
+\textsf{yield} effect and then the use $m$, but discard the result from
+\textsf{yield}.
 
 Observe that this gives us fine-grained control over which parts of our program
 become asynchronous. One might want a short-running function to not be
@@ -1735,44 +1760,109 @@ pre-emptible and just run without pause; conversely, one might want a
 long-running function to be interruptible. The programmer gets to choose this by
 labelling the functions with \textsf{Yield} in the ability.
 
+\section{Counting}
 
+The semantics given by Section~\ref{sec:inserting-yields} is fine, but is
+non-deterministic; at any point, we can choose to either insert a \textsf{yield}
+invocation or carry on as normal. Furthermore, we do not particularly need to
+yield very frequently; we might rather yield every 1000 reduction steps or so.
 
-\section{Interrupting In Practice}
+As such, we supplement the operational semantics with a counter $\counter$. This
+counter has two states; it could either be counting up, which is the form
+$\justc{n}$ for some $n$, or it is a signal to yield as soon as possible, which
+is the form $\yieldc$.
 
-Due to the non-determinism introduced by \textsc{R-Interrupt}, this system is
-difficult to implement; how do we choose whether to apply a handler to its
-arguments or to just interrupt it?
+To increment this counter, we use a slightly modified version of addition,
+denoted $\plusc$. This is simply defined as
 
-In our implementation of this system, we instead maintain a counter which is
-incremented every time a handler is evaluated. When the counter reaches a
-certain threshold value $t$, we interrupt the current term $m$, applying the
-\textsf{R-Interrupt} rule. This converts the non-deterministic system to a
-deterministic one; we never have any question of \emph{what} to do.
+\begin{equations}
+  x \plusc y =
+          \left\{ \ba{@{}l@{\quad}l@{}}
+              \justc{x + y} & \text{if } x + y \leq \threshc \\
+              \yieldc & \text{otherwise}
+          \right.
+\end{equations}
 
-Observe that the process of interrupting a computation is a familiar one; we
-stop computing and offer up the continuation to the programmer. Where is a
-similar control flow already around? That's right --- invocation of an effect.
+\noindent where $\threshc$ is the threshold at which we force a yield.
 
-\todo{Rewrite above paragraph to be less camp}
+The transitions in our operational semantics now become of the form $m; \counter
+\redtou m'; \counter '$. In Figure~\ref{fig:counting-rules} we give an updated
+rule for \textsc{R-Handle} --- overwriting the previous rule --- and two new
+rules for inserting yields.
 
-As such, we can just use a normal effect to perform the interruption. Sticking
-with previous themes, we choose to invoke a \code{yield} effect when
-interrupting. This lets the programmer choose to handle the effect as they wish.
-Note that now interrupts are not restricted to the catch-all pattern $\effin{m}$
-but are normal computation patterns.
+\begin{figure}
+%% \figrule
+\flushleft
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+\begin{mathpar}
+\inferrule[R-Handle-Count]
+  {% The type system should enforce this!
+   %(\handles{\adj_j}{t_j})_j \\
+   k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+   (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}}
+   %% \forall i < k.\exists j.r_{i, j} \# t_j}
+   %% l \text{~is minimal}}
+  {\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}; \highlight{\justc{n}}
+    \redtou
+    \cu ((\many{\venv}(n_k) : B)); \highlight{n \plusc 1}}
 
-These \code{yield} effects are only inserted in a computation when the
-\code{Yield} interface is present in the ability of this computation. This is
-important, as it lets the programmer get fine-grained control over which
-computations can be interrupted and which cannot. Consider the example in
-Section~\ref{sec:interrupt-motivation}; we want the \code{runner} computation to
-be controller by the \code{controller}. As such, we want the \code{runner} to be
-interruptible, whilst the \code{controller} is not. We can reflect this by
-adding the \code{Yield} interface to the ability of the former computation.
+\\
+\inferrule[R-Yield-Can]
+          { \EF[\EC]~\textsf{allows}~\textsf{Yield} }
+          { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[\textsf{yield!}; m]]; \justc{0} }
+\\
+\inferrule[R-Yield-Can't]
+          { \neg (\EF[\EC]~\textsf{allows}~\textsf{Yield}) \\
+            m; \justc{n} \redtou m'; c' }
+          { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[m]]; \yieldc }
+\\
 
-Thus our example from before becomes;
+\end{mathpar}
 
-\todo{updated example}
+\caption{New rules}
+\label{fig:counting-rules}
+%% \figrule
+\end{figure}
+
+\textsc{R-Handle-Count} replaces the previous rule \textsc{R-Handle}. If the
+counter is in the state $\justc{n}$, we perform the handling as usual,
+incrementing the counter by 1. Here we use $\plusc$, which will set the counter
+to be $\yieldc$ if the addition brings it over the threshold value.
+
+\textsc{R-Yield-Can} and \textsc{R-Yield-Can't} dictate what to do if we have to
+yield as soon as possible. If the evaluation context allows \textsf{yield}
+commands to be inserted we do so and reset the counter. If not, but the term
+could otherwise reduce if the counter had a different value, then we make that
+transition, still maintaining the $\yieldc$ signal.
+
+\todo{Talk about how this compares to TFP paper.}
+
+\section{Handling}
+\label{sec:handling}
+
+One of the strengths of this approach is that these inserted \textsf{yield}
+commands are first-class Frank commands; the programmer can choose how to handle
+them, potentially choosing some very complicated scheduling scheme.
+
+We show how with multihandlers and the discussed modification we achieve simple
+pre-emptive concurrency. Recall the scheduler from
+Section~\ref{sec:concurrency}, expanded to the 3-argument case below.
+
+\begin{lstlisting}
+sch3 : {<Yield> Unit -> <Yield> Unit -> <Yield> Unit -> Unit}
+sch3 <yield -> h> <yield -> j> <yield -> k> = sch3 (h unit) (j unit) (k unit)
+sch3 <yield -> h> <yield -> j> <k> = sch3 (h unit) (j unit) (k!)
+sch3 <yield -> h> <j> <yield -> k> = sch3 (h unit) (j unit) (k!)
+\end{lstlisting}
+
+We first try and handle both yield commands at once, then one at a time. This
+pattern can generalise to the $n$-ary case in a simple manner; we first try and
+
+\todo{Maybe the 3-ary case is too long --- could just do the 2ary one.}
+
+\todo{Instead of this, we can just use the example from before.}
 
 \section{Soundness}
 
@@ -1781,13 +1871,6 @@ subject reduction theorem needed for this proof. Our system is nothing more than
 the system of \cite{convent2020doo} with extra rules; as such we omit most of
 the details.
 
-%% \begin{restatable}[Subject Reduction]{theorem}{subred}\label{thm:sub-red}
-%%   \\
-%% \begin{itemize}
-%% \item If $\inferskgs{m}{A}$ and $m \redtou m'$ then $\inferskgs{m'}{A}$.
-%% \item If $\checkskgs{A}{n}$ and $n \redtoc n'$ then $\checkskgs{A}{n'}$.
-%% \end{itemize}
-%% \end{restatable}
 
 \begin{theorem}[Subject Reduction]\label{thm:sub-red}
 \vskip
@@ -1975,7 +2058,7 @@ performed in the promises, just like the \code{Promise} interface. The third
 argument is the thread itself, which performs \code{Promise} operations.
 Finally, the return type expresses that this code can perform any of the effects
 that the promises perform, plus \code{RefState} effects; the \code{Yield}
-encodes that this can be interrupted (as in Chapter~\ref{chap:pre-emption}).
+encodes that this can be interrupted (as in Chapter~\ref{chap:preemptive-concurrency}).
 
 \begin{lstlisting}[numbers=left]
 hdl thId thrs <promise (prom cb) -> k> =
