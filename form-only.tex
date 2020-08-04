@@ -101,6 +101,12 @@
   \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}
     {\textbf{TODO:} #1}}}}
 
+
+\newcommand{\quest}[1]
+           {{\par\noindent\small\color{Red}
+  \framebox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}
+    {\textbf{Q:} #1}}}}
+
 \newcommand{\interrupt}[1]{!(#1)}
 
 \newcommand{\fighead}{\textbf}
@@ -1066,34 +1072,48 @@ For any frame apart from argument frames,
 $\EF[\EC]~\allows~c = \textsf{false}$. In this case, it is defined as
 follows;
 
+%% \begin{equations}
+%%   \cu (v : \thunk{\many{\effin{\adj} A
+%%       \to}~\effout{\sigs}B})~(\many{t},[~],\many{n})~\allows~c =
+%%           \left\{ \ba{@{}l@{\quad}l@{}}
+%%           \ext~\allows~c & \text{if } |\many{n}| = 0~\text{ where } \sigs =~\seed\pipe\ext \\
+%%           \textsf{false} & \text{otherwise}
+%%           \right.
+
+%% \end{equations}
 \begin{equations}
   \cu (v : \thunk{\many{\effin{\adj} A
       \to}~\effout{\sigs}B})~(\many{t},[~],\many{n})~\allows~c =
-          \left\{ \ba{@{}l@{\quad}l@{}}
-          \ext~\allows~c & \text{if } |\many{n}| = 0~\text{ where } \sigs =~\seed\pipe\ext \\
-          \textsf{false} & \text{otherwise}
-          \right.
-
+  \sigs'~\allows~c ~\text{ where } \adjact{\sigs}{\adj_{|\many{t}|}}{\sigs'}    \\
 \end{equations}
 
 \todo{What happens for 0-ary constructors? I don't know if it's exactly how I
   think it is.}
 
-\noindent For an extension $\ext$, the \allows predicate is defined as
+\noindent For an ability $\sigs = \seed\pipe\ext$, $\sigs~\allows~c$ is true if
+$c \in I$ for some $I \in \ext$.
 
-\begin{equations}
-  \id~\allows~c &=& \textsf{false} \\
-  (\ext, \sig~\many{R})~\allows~c &=&
-      \left\{ \ba{@{}l@{\quad}l@{}}
-      \textsf{true} & \text{if } c\in\sig \\
-      \ext~\allows~c & \text{otherwise}
-      \right.
-\end{equations}
+%% \noindent For an extension $\ext$, the \allows predicate is defined as
 
-Informally, $\EF[\EC]~\allows~c$ is true when $\EF[\EC]$ is a handler
-with the command $c$ as a member of an interface in its ability, \emph{and} all
-of the arguments have been evaluated (this is what the $|\many{n}| = 0$
-constraint expresses).
+%% \begin{equations}
+%%   \id~\allows~c &=& \textsf{false} \\
+%%   (\ext, \sig~\many{R})~\allows~c &=&
+%%       \left\{ \ba{@{}l@{\quad}l@{}}
+%%       \textsf{true} & \text{if } c\in\sig \\
+%%       \ext~\allows~c & \text{otherwise}
+%%       \right.
+%% \end{equations}
+
+Informally, $\EC~\allows~c$ is true when $\EC$ is a handler where the command
+$c$ is a member of an interface in its ability when modified by the adaptor at
+the corresponding position.
+
+\todo{Clean this up}
+
+%% Informally, $\EF[\EC]~\allows~c$ is true when $\EF[\EC]$ is a handler
+%% with the command $c$ as a member of an interface in its ability, \emph{and} all
+%% of the arguments have been evaluated (this is what the $|\many{n}| = 0$
+%% constraint expresses).
 
 We also make use of an auxilary combinator $\_ ; \_$. This is the traditional
 sequential composition operator, where both arguments are evaluated and hte
@@ -1276,13 +1296,13 @@ $\boxed{m \redtou m'} $
 $\boxed{m \redtou m'} $
 \begin{mathpar}
 \inferrule[R-Yield-Can]
-          { \EF~\allows~\textsf{Yield} }
-          { \EF[n]; \yieldc \redtou \EF[\textsf{yield!}; n]; \justc{0} }
+          { \EC~\allows~\textsf{Yield} }
+          { \EC[n]; \yieldc \redtou \EC[\textsf{yield!}; n]; \justc{0} }
 \\
 \inferrule[R-Yield-Can't]
-          { \neg (\EF~\allows~\textsf{Yield}) \\
+          { \neg (\EC~\allows~\textsf{Yield}) \\
             n; \justc{k} \redtou n'; c' }
-          { \EF[n]; \yieldc \redtou \EF[n']; \yieldc }
+          { \EC[n]; \yieldc \redtou \EC[n']; \yieldc }
 \\
 
 \end{mathpar}
@@ -1319,32 +1339,35 @@ $m'$ still remains the same type.
 Thus the only new cases are \textsc{R-Yield-Can} and \textsc{R-Yield-Can't}.
 
 \begin{itemize}
-\item[\Cse] \textsc{R-Yield-Can} \\
-  By the assumption we have that $\EF~\allows~\textsf{yield}$. This only holds
-  if the evaluation frame is of the form
-  \[\cu (v : \thunk{\many{\effin{\adj} A
-      \to}~\effout{\sigs}B})~(\many{t},[~],\many{n'})\].
+\item[\Cse] \textsc{R-Yield-Can}
+  By the assumption we have that $\EC~\allows~\textsf{yield}$. This only holds
+  if the context is of the form
+  \[\EC[~] = \cu (v : \thunk{\many{\effin{\adj} A
+      \to}~\effout{\sigs}B})~(\many{t},[~],\many{n'})\]
 
-  Filling the hole then, we must have that
-  \begin{mathpar}
-    \EF[n] = \cu (v : \thunk{\many{\effin{\adj} A
-      \to}~\effout{\sigs}B})~(\many{t},n,\many{n'}) \\
-    \[\EF[\textsf{yield!}; n] = \cu (v : \thunk{\many{\effin{\adj} A
-      \to}~\effout{\sigs}B})~(\many{t},\textsf{yield!}; n,\many{n'})
-  \end{mathpar}
+  Assume that
+  \[\inferskgs{\cu (v : \thunk{\many{\effin{\adj} A
+      \to}~\effout{\sigs}B})~(\many{t},\EC'[n],\many{n'})}{B}\]
 
-  Then assume $\checkskgs{B}{\EF[n]}$. By inversion on \textsc{T-App}, we have
-  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{n}$.
+  Then by inversion on \textsc{T-App} we have
+  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\EC'[n]}$. We now
+  require that
+  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\EC'[\textsf{yield};
+      n]}$. This follows from the assumption $\EC~\allows~\textsf{yield}$, which
+  entails that $\textsf{yield}~\in~\sigs'_{|\many{t}|}$. Thus
+  $\inferskgs{\EC[\textsf{yield}; n]}{B}$.
 
-  \todo{Do we need to worry about the adaptors?}
+  %% So we have that
+  %% \begin{mathpar}
+  %%   \EC[n] = \cu (v : \thunk{\many{\effin{\adj} A
+  %%     \to}~\effout{\sigs}B})~(\many{t},\EC[n],\many{n'}) \\
+  %%   \[\EC[\textsf{yield!}; n] = \cu (v : \thunk{\many{\effin{\adj} A
+  %%     \to}~\effout{\sigs}B})~(\many{t},\EC[\textsf{yield!}; n],\many{n'})
+  %% \end{mathpar}
 
-  \todo{Fill in space here --- need to be sure that the ability permits what we
-    think it does.}
 
-  Clearly then
-  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\textsf{yield}; n}$, as
-  we know from $\EF~\allows~\textsf{yield}$ that $\yield \in
-  \sigs'_{|\many{t}|}$. 
+
+
 
 
 \item[\Cse] \textsc{R-Yield-Can't}
