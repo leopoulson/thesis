@@ -94,6 +94,9 @@
 \newcommand{\highlight}[1]{%
   \colorbox{red!20}{$\displaystyle#1$}}
 
+\newcommand{\texthighlight}[1]{%
+  \colorbox{red!20}{#1}}
+
 \newcommand{\highlightout}[1]{%
   \colorbox{black!20}{$\displaystyle#1$}}
 
@@ -459,6 +462,56 @@ thanks!
 
 \chapter{Introduction}
 
+Effects, such as state and nondeterminism, are pervasive when programming; for a
+program to do anything beyond compute a pure mathematical function, it must
+interact with the outside world, be this to read from a file, make some random
+choice, or run concurrently with another program. Algebraic effects and their
+handlers are a novel way to encapsulate, reason about and specify computational
+effects in programming languages. For instance, a program that reads from and
+writes to some local state can utilise the \textsf{State} effect, which supports
+two \emph{operations}; \textsf{get} and \textsf{put}. A handler for the
+\textsf{State} effect gives a meaning to these abstract operations.
+
+Programming with effects is increasingly popular, references, ...
+
+Traditional effect handling is \emph{synchronous}; when an effectful operation
+is invoked, the rest of the computation pauses whilst the effect handler
+performs the requisite computation and then resumes the original caller.
+\todo{Do we need to speak about how the continuation of the caller gets 'offered
+  up'?}
+%
+For many effects, this blocking behaviour is not a problem; the handler usually
+returns quickly, and the user does not notice anything. Of course, not every
+possible computational effect behaves like this. Consider an effect involving a
+query to a remote database. We might not want to block the rest of the
+computation whilst we perform this, as the query might take a long time; this
+case is even stronger if we do not immediately want the data. To support this
+kind of behaviour, we need to be able to invoke and handle effects in an
+asynchronous, non-blocking manner.
+
+\texthighlight{In this project we investigate the implementation and
+  applications of asynchronous effects}. Our lens for this is the language
+Frank~(\cite{convent2020doo}), a functional programming designed with effect
+handlers at its core. We follow the design
+of~\aeff~(\cite{ahman2020asynchronous}), a small programming language designed
+around asynchronous effects but supporting little else. We show how, with a
+small change to the semantics of Frank, we can recreate the asynchronous effect
+handling behaviour of~\aeff.
+
+\todo{Talk about extra examples...}
+
+%% The changes made to Frank are straightforward to recreate, and whilst the Frank
+%% library for programming with asynchronous effects enjoys some specific
+
+Frank is a well-suited language for an asynchronous effects library, especially
+because of the fine-grained control over suspended computations, making it very
+easy to treat code as data. Despite this, our approach does not use any specific
+Frank features; furthermore, the changes made to the semantics of Frank are
+easily recreateable. It is our hope that these methods could be recreated in
+another language equipped with first-class effect handlers. Effect handlers have
+already proven to make complicated control flow easy to implement
+(\textbf{refs}), and our work further cements this viewpoint.
+
 \section{Related Work}
 
 TFP, aeff, etc
@@ -479,7 +532,37 @@ that this change is simple enough to be transferrable to other languages.
 \paragraph*{Examples} We also deliver a set of examples of the uses of
 asynchronous effects, and show how they have benefits to other models.
 
+\section{Structure}
+
+In Chapter~\ref{chap:programming-in-frank} we give an introduction to
+programming with effects in Frank. We skip over some unneeded parts, such as
+adaptors, in the interests of time.
+
+In Chapter~\ref{chap:formalisation} we give the formalisation of Frank. Again,
+we skip over extraneous details which can be seen in past work
+(\cite{convent2020doo}), opting to only describe the parts needed to understand
+the changes to the semantics for the following chapter.
+
+In Chapter~\ref{chap:preemptive-concurrency} we show how by making a small
+change to the semantics of Frank we yield pre-emptible threads; that is, we can
+interrupt a function in the same 'co-operative' style but without co-operation
+
+\todo{Fix above}
+
+In Chapter~\ref{chap:implementation} we describe the implementation of our
+asynchronous effect handling library in Frank. In Chapter~\ref{chap:examples} we
+give examples of the new programs that become easily expressible when combined
+with the changes made in Chapter~\ref{chap:preemptive-concurrency}.
+
+In Chapter~\ref{chap:conclusion} we conclude.
+
+
+
+
+
+
 \chapter{Programming in Frank}
+\label{chap:programming-in-frank}
 
 Frank is a functional programming language, designed with the use of algebraic
 effects at its heart. As such, Frank has an effect type system used to track
@@ -927,6 +1010,7 @@ similar diagram of how the depth-first handling differs in Figure \ref{fig:sched
 \end{figure}
 
 \chapter{Formalisation of Frank}
+\label{chap:formalisation}
 
 %% We now discuss the formalisation of the Frank language. This has been discussed
 %% in depth in previous work (\cite{convent2020doo}), so we do not go into great
@@ -1837,7 +1921,18 @@ commands to be inserted we do so and reset the counter. If not, but the term
 could otherwise reduce if the counter had a different value, then we make that
 transition, still maintaining the $\yieldc$ signal.
 
-\todo{Talk about how this compares to TFP paper.}
+\citeauthor{dolan2017concurrent} take a similar approach to this when
+investigating asynchrony in Multicore OCaml (\cite{dolan2017concurrent}). They
+rely on the operating system to provide a timer interrupt, which is handled as a
+first-class effect. Our system is more self-contained; the timing is implemented
+within the language itself and doesn't rely on the operating system providing
+interrupts. Furthermore, we get fine-grained control over when the timer can
+fire, as we can choose to put \textsf{Yield} in the ability of interruptible
+terms.
+
+\todo{Maybe remove part about 'fine-grained'ness as they can just pick whether
+  or not to handle the timer effect anyway?}
+
 
 \section{Handling}
 \label{sec:handling}
@@ -1868,7 +1963,7 @@ pattern can generalise to the $n$-ary case in a simple manner; we first try and
 
 We now state the soundness property for our extended system, as well as the
 subject reduction theorem needed for this proof. Our system is nothing more than
-the system of \cite{convent2020doo} with extra rules; as such we omit most of
+the system of~\citeauthor{convent2020doo} with extra rules; as such we omit most of
 the details.
 
 
@@ -1906,7 +2001,7 @@ $\infers{\cdot}{\cdot}{\sigs}{m}{A}$ and $\checks{\cdot}{\cdot}{\sigs}{A}{n}$.
 
 
 \chapter{Implementation}
-\label{chap:Implementation}
+\label{chap:implementation}
 
 We now introduce the Frank library used for asynchronous effects.
 %
@@ -2375,10 +2470,93 @@ then executes \code{prod}, which then lets the final one run. This behaviour
 depends on signals being able to execute many promises at once (that is,
 behaving like \emph{deep} rather than shallow handlers).
 
+\section{Cancelling Tasks}
+
+\todo{Link back to the async/await w/ dynamic}
+
+Because we are working in a language equipped with effect handlers, we can
+easily write a handler for the \textsf{Cancel} effect, which just gets rid of
+the continuation and replaces it with some default value (e.g. \code{unit}).
+
+\begin{lstlisting}
+  interface Cancel = cancel : Unit
+ 
+  hdlCancel : {<Cancel> Unit -> Unit}
+  hdlCancel <cancel -> _> = unit
+  hdlCancel unit          = unit
+\end{lstlisting}
+
+We can use this to cancel a task issued with \code{async}. Recall that these
+tasks run on their own thread. As such, we can just cancel the entire thread at
+the top-level.
+
+We have to modify the handler for the \textsf{Promise} effect for this. Recall
+that when we install a promise, we convert it to a form that takes the rest of
+the computation and reinstalls the promise handler. We need to then wrap this in
+a handler for \textsf{Cancel} effects again; this is because user-level promises
+could perform \textsf{Cancel} effects. Thus, we convert them to
+
+\begin{lstlisting}
+case (cbMod sig)
+    { nothing -> nothing
+    | (just susp) ->
+      just { stopCancel (hdl thId thrs (susp!; <LCancel, Promise> rest!)) }}
+\end{lstlisting}
+
+\todo{Talk about informing the scheduler that the thread has been cancelled as well.}
+
+The realisation of cancellable function calls
+in~\aeff(\cite{ahman2020asynchronous}) was to start awaiting a new promise that
+will never be installed. This leads to a space leak as unfulfilled promises
+build up. Our approach improves on this as the cancelled calls do genuinely
+disappear.
+
+However, a weakness of ours is that we have to modify the handler code for
+promises, even though cancellation of calls and promises should be orthogonal.
+
+\section{Interleaving}
+
+With the \textsf{Cancel} effect, we can also define the useful \code{interleave}
+combinator, in the spirit of Koka's interleave
+operator~\cite{leijen2017structured}.
+
+\todo{Think of a better way to make reference to Daan's work}
+
+\begin{lstlisting}
+interleave : {{[InTask] String} -> {[InTask] String}
+          -> Ref Int -> [WebEffs] Pid String [WebEffs]}
+interleave procA procB callCounter =
+    -- Issue the two calls with signals.
+    let callNoA = read callCounter in
+    write callCounter (callNoA + 1);
+    let callNoB = read callCounter in
+    write callCounter (callNoB + 1);
+
+    -- Install a waiter to wait for the first result
+    let ileaveWaiter = (leaveResWaiter callNoA callNoB) in
+
+    -- Signal to start the other two
+    signal (call procA callNoA);
+    signal (call procB callNoB);
+
+    -- Just return waiter.
+    ileaveWaiter
+\end{lstlisting}
+
+This will set two threads running on independent threads. It then installs an
+interrupt handler for result messages; whichever result returns first, we cancel
+the other task and just return the result of the original one.
+
+This lets us write timeouts for functions; we can cancel a task if it takes too
+long to return (e.g. a request to a web server that is inactive), or run two
+remote identical requests to different services and just take the result of
+whichever one returns first. This also generalises to the $n$-ary case in the
+natural way.
 
 
 
 \chapter{Conclusion}
+\label{chap:conclusion}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% BIBLIOGRAPHY
