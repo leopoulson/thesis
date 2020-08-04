@@ -110,10 +110,10 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-\newcommand{\counter}{c_y}
-\newcommand{\justc}[1]{c({#1})}
-\newcommand{\yieldc}{\textsf{yield}}
-\newcommand{\plusc}{+_c}
+\newcommand{\counter}{{\color{blue}c_y}}
+\newcommand{\justc}[1]{{\color{blue} c({#1})}}
+\newcommand{\yieldc}{{\color{blue}{\textsf{yield}}}}
+\newcommand{\plusc}{{\color{blue} +_c}}
 \newcommand{\threshc}{t_y}
 
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
@@ -1772,8 +1772,8 @@ $\boxed{m \redtou m'} $
 %
 %
 \inferrule[R-Yield-EF]
-          { \EF[\EC]~\textsf{allows}~\textsf{Yield} }
-          { \EF[\EC[m]] \redtou \EF[\EC[\textsf{yield!}; m]] }
+          { \EC~\textsf{allows}~\textsf{Yield} }
+          { \EC[m] \redtou \EC[\textsf{yield!}; m] }
 \end{mathpar}
 %
 %
@@ -1782,48 +1782,29 @@ $\boxed{m \redtou m'} $
 %% \figrule
 \end{figure}
 
-%% We explain \textsc{R-Yield} here. Given a suspended construction $\thunk{n}$,
-%% which has been ascribed the type $\thunk{[\sigs]A}$, we produce a new function
-%% $f_n$ which takes a value of type $\textsf{Unit}$ and returns the original term
-%% $n$, and a thunk $y$ which is just $\textsf{yield!}$ suspended. Note that we
-%% write $\textsf{yield}!$ for the 0-ary invocation of the command
-%% $\textsf{yield}$. We then apply this constructed function $f_n$ to $y!$; note
-%% that because the interface $\textsf{Yield}$ is a member of the ability $\sigs$
-%% this is well-typed.
-
 Note that \textsc{R-Yield-EF} relies on the predicate
-$\EF[\EC]~\textsf{allows}~c$. This states that the \textsf{Yield} interface is
-in the ability of the term in the evaluation context. For any frame apart from
-argument frames, $\EF[\EC]~\textsf{allows}~c = \textsf{false}$. In this case, it
-is defined as follows;
+$\EF[\EC]~\allows~c$. This states that the \textsf{Yield}
+interface is in the ability of the term in the evaluation context.
+
+For any frame apart from argument frames,
+$\EF[\EC]~\allows~c = \textsf{false}$. In this case, it is defined as
+follows;
 
 \begin{equations}
   \cu (v : \thunk{\many{\effin{\adj} A
-      \to}~\effout{\sigs}B})~(\many{t},[~],\many{n})~\textsf{allows}~c =
-          \left\{ \ba{@{}l@{\quad}l@{}}
-          \ext~\textsf{allows}~c & \text{if } |\many{n}| = 0~\text{ where } \sigs =~\seed\pipe\ext \\
-          \textsf{false} & \text{otherwise}
-          \right.
+      \to}~\effout{\sigs}B})~(\many{t},[~],\many{n})~\allows~c =
+  \sigs'~\allows~c ~\text{ where } \adjact{\sigs}{\adj_{|\many{t}|}}{\sigs'}    \\
 \end{equations}
 
 
-\noindent For an extension $\ext$, the \textsf{allows} predicate is defined as
+\noindent For an ability $\sigs = \seed\pipe\ext$, $\sigs~\allows~c$ is true if
+$c \in I$ for some $I \in \ext$.
 
-\begin{equations}
-  \id~\textsf{allows}~c &=& \textsf{false} \\
-  (\ext, \sig~\many{R})~\textsf{allows}~c &=&
-      \left\{ \ba{@{}l@{\quad}l@{}}
-      \textsf{true} & \text{if } c\in\sig \\
-      \ext~\textsf{allows}~c & \text{otherwise}
-      \right.
-\end{equations}
+Informally, $\EC~\allows~c$ is true when $\EC$ is a handler where the command
+$c$ is a member of an interface in its ability when modified by the adaptor at
+the corresponding position.
 
-\noindent Informally, $\EF[\EC]~\textsf{allows}~c$ is true when $\EF[\EC]$ is a
-handler with the command $c$ as a member of an interface in its ability,
-\emph{and} all of the arguments have been evaluated (this is what the
-$|\many{n}| = 0$ constraint expresses).
-
-\todo{Do we even need the restriction that $|\many{n}| = 0$?}
+\todo{Clean this up}
 
 We also make use of an auxiliary combinator $\_ ; \_$. This is the traditional
 sequential composition operator $\textsf{snd}~x~y~\mapsto~y$, where both
@@ -1888,24 +1869,24 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
    %% \forall i < k.\exists j.r_{i, j} \# t_j}
    %% l \text{~is minimal}}
   {\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
-        \to}~\effout{\sigs}B})~\many{t}; \highlight{\justc{n}}
-    \redtou
+        \to}~\effout{\sigs}B})~\many{t}; \highlight{\justc{n}}~
+    \redtou~
     \cu ((\many{\venv}(n_k) : B)); \highlight{n \plusc 1}}
 
 \\
 \inferrule[R-Yield-Can]
-          { \EF[\EC]~\textsf{allows}~\textsf{Yield} }
-          { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[\textsf{yield!}; m]]; \justc{0} }
+          { \EC~\textsf{allows}~\textsf{Yield} }
+          { \EC[m]; \yieldc~\redtou~\EC[\textsf{yield!}; m]; \justc{0} }
 \\
 \inferrule[R-Yield-Can't]
-          { \neg (\EF[\EC]~\textsf{allows}~\textsf{Yield}) \\
+          { \neg (\EC~\textsf{allows}~\textsf{Yield}) \\
             m; \justc{n} \redtou m'; c' }
-          { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[m]]; \yieldc }
+          { \EC[m]; \yieldc~\redtou~\EC[m]; \yieldc }
 \\
 
 \end{mathpar}
 
-\caption{New rules}
+\caption{Yielding with Counting}
 \label{fig:counting-rules}
 %% \figrule
 \end{figure}
@@ -1970,15 +1951,56 @@ the details.
 \begin{theorem}[Subject Reduction]\label{thm:sub-red}
 \vskip
 \begin{itemize}\\
-\item If $\inferskgs{m}{A}$ and $m \redtou m'$ then $\inferskgs{m'}{A}$.
-\item If $\checkskgs{A}{n}$ and $n \redtoc n'$ then $\checkskgs{A}{n'}$.
+\item If $\inferskgs{m}{A}$ and $m; \counter \redtou m'; \counter'$ then $\inferskgs{m'}{A}$.
+\item If $\checkskgs{A}{n}$ and $n; \counter \redtoc n'; \counter'$ then $\checkskgs{A}{n'}$.
 \end{itemize}
   \end{theorem}
 
 \begin{proof}
-By induction on the transitions $\redtou, \redtoc$.\todo{Finish this; addition of
-new yielding rule.}
+By induction on the transitions $\redtou, \redtoc$.
+
+We first consider the two possible states for $\counter$. If it is in the form
+$\justc{n}$, then the reduction rules are simply the same as
+in~\cite{convent2020doo}, as we do not change the counter. The only exception to
+this is the updated \textsc{R-Handle} rule, which is essentially the same except
+for modifications to the counter; regardless of the counter, the resulting term
+$m'$ still remains the same type.
+
+Thus the only new cases are \textsc{R-Yield-Can} and \textsc{R-Yield-Can't}.
+
+\begin{itemize}
+\item[\Cse] \textsc{R-Yield-Can}
+  By the assumption we have that $\EC~\allows~\textsf{yield}$. This only holds
+  if the context is of the form
+  \[\EC[~] = \cu (v : \thunk{\many{\effin{\adj} A
+      \to}~\effout{\sigs}B})~(\many{t},[~],\many{n'})\]
+
+  Assume that
+  \[\inferskgs{\cu (v : \thunk{\many{\effin{\adj} A
+      \to}~\effout{\sigs}B})~(\many{t},\EC'[n],\many{n'})}{B}\]
+
+  Then by inversion on \textsc{T-App} we have
+  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\EC'[n]}$. We now
+  require that
+  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\EC'[\textsf{yield};
+      n]}$. This follows from the assumption $\EC~\allows~\textsf{yield}$, which
+  entails that $\textsf{yield}~\in~\sigs'_{|\many{t}|}$. Thus
+  $\inferskgs{\EC[\textsf{yield}; n]}{B}$.
+
+\item[\Cse] \textsc{R-Yield-Can't}
+  This case is more straightforward. By the assumption we have that the
+  evaluation frame $\EF$ does not permit yielding, but the term inside the frame
+  could otherwise reduce.
+
+  Assume $\checkskgs{A}{\EF[n]}$, and therefore $\checkskgs{A'}{n}$. By the
+  assumption and subject reduction, $\checkskgs{A'}{n'}$. Then clearly
+  $\checkskgs{A}{\EF[n']}$.
+
+\end{itemize}
 \end{proof}
+
+
+
 
 \begin{theorem}[Type Soundness]\label{thm:soundness}
 \begin{itemize}
