@@ -104,6 +104,9 @@
 
 \newcommand\aeff{{\AE}ff\xspace}
 
+\newcommand\nondetfrank{$\mathbb{F}_{\cal{ND}}$}
+\newcommand\countingfrank{$\mathbb{F}_{\cal{C}}$}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -114,7 +117,12 @@
 \newcommand{\justc}[1]{{\color{blue} c({#1})}}
 \newcommand{\yieldc}{{\color{blue}{\textsf{yield}}}}
 \newcommand{\plusc}{{\color{blue} +_c}}
-\newcommand{\threshc}{t_y}
+\newcommand{\threshc}{{\color{blue} t_y}}
+
+\newcommand\yield{\textsf{yield}\xspace}
+\newcommand\Yield{\textsf{Yield}\xspace}
+\newcommand\allows{\textsf{allows}\xspace}
+
 
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 
@@ -1425,7 +1433,8 @@ Section~\ref{subsec:simple-scheduling}.
 runner : {[Console, Yield] Unit}
 runner! = print "1 "; yield!; print "2 "; yield!; print "3 "; yield!
 
-suspend : {<Yield> Unit -> <Stop, Go> Unit -> Maybe {[Console, Yield] Unit} -> [Console] Unit}
+suspend : {<Yield> Unit -> <Stop, Go> Unit
+  -> Maybe {[Console, Yield] Unit} -> [Console] Unit}
 suspend <yield -> r> <stop -> c> _ =
     suspend unit (c unit) (just {r unit})
 suspend <_>          <go -> c>   (just res) =
@@ -1441,83 +1450,58 @@ Section~\ref{subsec:simple-scheduling}; \code{runner} is evaluated until it
 becomes a command or a value, and then \code{controller} is given the same
 treatment. Once both are a command or a value, pattern matching is done.
 
-So far so good; this works as we hoped. However, observe that we had to change
-the code of the \code{runner} to \code{yield} every time it prints.
+This gives us the desired behaviour; the use of \code{yield} gives the
+controller a chance to run, and also gives us access to the continuation of
+\code{runner}. We can then use this to implement whatever scheduling strategy we
+like.
 %
-%% We would rather not have this requirement; the threads should be suspendable
-%% without knowing in advance they will be suspended, and thus without needing to
-%% explicitly \code{yield}.
-%
-This is not in the spirit of pre-emptive concurrency; we are still operating
-co-operatively. Threads should be unaware of the fact they are even being
-pre-empted.
-% The below line could maybe go...
-Furthermore, see that the \code{yield} operation adds no more information; it is
-just used as a placeholder operation; any operation would work.
-%
-As such, we keep searching for a better solution.
+We are, however, still operating co-operatively; the programmer has to manually
+insert \code{yield} commands. If the programmer does not do so evenly enough
+then either process could become starved. As such, we continue searching for a
+better solution.
 
-\todo{Penultimate sentence could maybe go , a bit clumsy / weird}
+%% So far so good; this works as we hoped. However, observe that we had to change
+%% the code of the \code{runner} to \code{yield} every time it prints.
+%% %
+%% %% We would rather not have this requirement; the threads should be suspendable
+%% %% without knowing in advance they will be suspended, and thus without needing to
+%% %% explicitly \code{yield}.
+%% %
+%% This is not in the spirit of pre-emptive concurrency; we are still operating
+%% co-operatively. Threads should be unaware of the fact they are even being
+%% pre-empted.
+%% % The below line could maybe go...
+%% Furthermore, see that the \code{yield} operation adds no more information; it is
+%% just used as a placeholder operation; any operation would work.
+%% %
+%% As such, we keep searching for a better solution.
 
 \section{Relaxing Catches}\label{sec:relaxingcatches}
 
-\begin{figure}[t]
-%% \figrule
-%% \flushleft
-%% \centering
-%\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
-%amb. $\venv$ and binds $\venv$.}
-\begin{mathpar}
-
-\inferrule[B-CatchAll-Request]
-  {
-  \adjact{\sigs}{\adj}{\sigs'} \\
-  \EC \poised c \\\\
-  \adj = \adapt\pipe\ext \\
-  c : \forall \many{Z}. \many{B \to}~B' \in \ext
-  }
-  {\bindsc{\effin{x}}{\effin{\adj}A}
-  {\freeze{\EC[c~\many{R}~\many{w}]}}
-  {\sigs}
-  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
-
-\\
-\inferrule[B-CatchAll-Request-Loose]
-  {
-  \adjact{\sigs}{\adj}{\sigs'} \\
-  %% \EC \poised c \\\\
-  %% \adj = \adapt\pipe\ext \\
-  %% c : \forall \many{Z}. \many{B \to}~B' \in \ext
-  }
-  {\bindsc{\effin{x}}{\effin{\adj}A}
-  {\freeze{\EC[c~\many{R}~\many{w}]}}
-  {\sigs}
-  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
-
-\end{mathpar}
-
-\caption{Updated \textsc{B-CatchAll-Request}}
-\label{fig:loose-catchall-request}
-%% \figrule
-\end{figure}
-The key to this lies in the catchall pattern, $\effin{x}$, and the pattern
+One approach is to relax the rules for pattern matching with the catchall
+pattern $\effin{x}$. This would let us match generic commands that may not be
+handled by the current handler. The key to implementing this lies in the pattern
 binding rules of Figure~\ref{fig:pattern-binding}; specifically
-\textsc{B-CatchAll-Request}. We quickly go into detail on this rule now.
+\textsc{B-CatchAll-Request}.
+
+%% The key to this lies in the catchall pattern, $\effin{x}$, and the pattern
+%% binding rules of Figure~\ref{fig:pattern-binding}; specifically
+%% \textsc{B-CatchAll-Request}. %We quickly go into detail on this rule now.
 %
-$\effin{x} : {\effin{\adj}A}$ states that $\effin{x}$ is a term with value type
-$A$ and \emph{adjustment} $\adj = \adapt\pipe\ext$, made up of an adaptor
-$\adapt$ and an extension $\ext$. This extension is made up of a list of
-interface instantiations $\sig~\many{R}$.
+%% $\effin{x} : {\effin{\adj}A}$ states that $\effin{x}$ is a term with value type
+%% $A$ and \emph{adjustment} $\adj = \adapt\pipe\ext$, made up of an adaptor
+%% $\adapt$ and an extension $\ext$. This extension is made up of a list of
+%% interface instantiations $\sig~\many{R}$.
 
 The crux is that the command $c$ that is invoked in the frozen term
-$\freeze{\EC[c~\many{R}~\many{w}]}$ must be an element of this extension $\ext$;
-that is, it must be handled by the current use of \textsc{R-Handle}. Refer back
-to the example of Section~\ref{sec:yield-interruption}. This rules means that
-the catch-all pattern \code{<_>} in the final pattern matching case of
-\code{suspend} can match against \code{stop} or \code{go}, as they are present
-in the extension of the second argument, but not \code{print} commands; although
-the \code{Console} interface is present in the ability of \code{controller}, it
-is not in the extension in \code{suspend}.
+$\freeze{\EC[c~\many{R}~\many{w}]}$ must be a command offered by the extension
+$\ext$; that is, it must be handled by the current use of \textsc{R-Handle}.
+Refer back to the example of Section~\ref{sec:yield-interruption}. This rules
+means that the catch-all pattern \code{<_>} in the final pattern matching case
+of \code{suspend} can match against \code{stop} or \code{go}, as they are
+present in the extension of the second argument, but not \code{print} commands;
+although the \code{Console} interface is present in the ability of
+\code{controller}, it is not in the extension in \code{suspend}.
 
 
 
@@ -1538,27 +1522,14 @@ is not in the extension in \code{suspend}.
 %% to the fourth requirement of \textsc{B-CatchAll-Request}; that the command $c$
 %% that is invoked is a member of $\ext$.
 
-\begin{figure}[t]
+\begin{figure}[h]
 %% \figrule
 %% \flushleft
 %% \centering
 %\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
 %amb. $\venv$ and binds $\venv$.}
 \begin{mathpar}
-
-\inferrule[B-CatchAll-Request]
-  {
-  \adjact{\sigs}{\adj}{\sigs'} \\
-  \EC \poised c \\\\
-  \adj = \adapt\pipe\ext \\
-  c : \forall \many{Z}. \many{B \to}~B' \in \ext
-  }
-  {\bindsc{\effin{x}}{\effin{\adj}A}
-  {\freeze{\EC[c~\many{R}~\many{w}]}}
-  {\sigs}
-  {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
-
-\\
+%% \\
 \inferrule[B-CatchAll-Request-Loose]
   {
   \adjact{\sigs}{\adj}{\sigs'} \\
@@ -1570,18 +1541,15 @@ is not in the extension in \code{suspend}.
   {\freeze{\EC[c~\many{R}~\many{w}]}}
   {\sigs}
   {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
-
 \end{mathpar}
-
 \caption{Updated \textsc{B-CatchAll-Request}}
 \label{fig:loose-catchall-request}
 %% \figrule
 \end{figure}
 
 In the interests of pre-emption, we propose to remove this constraint from
-\textsc{B-CatchAll-Request}.
-%
-The resulting rule \textsc{B-CatchAll-Request-Loose} can be seen in
+\textsc{B-CatchAll-Request}, replacing the rule with
+\textsc{B-CatchAll-Request-Loose} as seen in
 Figure~\ref{fig:loose-catchall-request}. This lets us update the previous
 \code{suspend} code to the following, which yields the same results as last
 time;
@@ -1592,35 +1560,34 @@ runner! = print "1 "; print "2 "; print "3 "
 
 suspend : {Unit -> <Stop, Go> Unit -> Maybe {[Console] Unit} -> [Console] Unit}
 suspend <r> <stop -> c> _ =
-    suspend unit (c unit) (just {r unit})
+    suspend unit (c unit) (just r)
 suspend <_>          <go -> c>   (just res) =
     suspend res! (c unit) nothing
 suspend unit         <_>         _ = unit
 \end{lstlisting}
 
-\todo{ Check that the above still works... }
 \noindent Now when we run \code{suspend runner! controller! nothing}, the
-\code{suspend} handler is able to
+\code{suspend} handler can match the catchall pattern \code{<r>} against the
+\code{print} commands in \code{runner}.
 
-\todo{Talk about how this still maintains the ``no-snooping'' policy; we can't
-  inspect or access the effects that are invoked, but we know they happen.}
+The no-snooping policy with respect to effect handlers (\cite{convent2020doo})
+states that a handler should not be able to intercept effects that it does not
+handle. This change breaks this policy, as we can now tell when an command is
+used. Whilst we can not handle it as per usual, we get the option to throw away
+the continuation. A system that does not allow for snooping is much preferred.
 
-Even with this extension,
+\section{Freezing Arbitrary Terms}
+\label{sec:freezing-terms}
 
-\section{Interrupting Arbitrary Terms}
-
-The approach of Section \ref{sec:relaxingcatches} can only interrupt command
+The approach of Section~\ref{sec:relaxingcatches} can only interrupt command
 invocations. If \code{runner} were instead a sequence of pure
-computations\footnote{I.e. \code{runner! = 1 + 1; 1 + 1; 1 + 1; ...}}, we would
+computations\footnote{I.e. \code{runner! = 1 + 1; 1 + 1; 1 + 1}; $\ldots$} we would
 be unable to interrupt it; it does not invoke commands.
 
 As such, we need to further change the pattern binding rules of Figure
 \ref{fig:pattern-binding}. This is to let us interrupt arbitrary computation
-terms. In Figure \ref{fig:runtime-syntax-freeze}, we see an updated version of
-the runtime syntax; this allows for the suspension of arbitrary \emph{uses},
-essentially just function applications.
-
-\todo{verify that uses are ``just'' apps and constructions}
+terms. In Figure~\ref{fig:runtime-syntax-freeze}, we see an updated version of
+the runtime syntax; this allows for the suspension of arbitrary \emph{uses}.
 
 \begin{figure}[t]
 %% \figrule
@@ -1652,8 +1619,7 @@ essentially just function applications.
 \begin{figure}[h]
 %% \figrule
 \flushleft
-$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
-    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'}$
 \begin{mathpar}
 
 \inferrule[R-Freeze-Use]
@@ -1661,29 +1627,34 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
   { m \redtou \freeze{m} }
 
 \inferrule[R-Freeze-Frame-Use]
-  { }
+  { \EF \textsf{ not handler }}
   { \EF[\EC[\freeze{m}]] \redtou \freeze{\EF[\EC[m]]} }
 
 \inferrule[R-Freeze-Frame-Cons]
-  { }
+  { \EF \textsf{ not handler }}
   { \EF[\EC[\freeze{m}]] \redtoc \freeze{\EF[\EC[m]]} }
 
 \end{mathpar}
 
-\caption{Updated Freezing \todo{Maybe need to add that the eval ctx is NOT a handler?}}
+\caption{Updated Freezing}
 \label{fig:Freezing}
 %% \figrule
 \end{figure}
 
 Note that frozen terms here behave in a similar way to frozen commands, by
 freezing the rest of the term around it as well. This continues up until a
-handler is reached, at which point the term is unfrozen and resumed.
+handler is reached, at which point the term is unfrozen and resumed. This
+process of freezing up to a handler is enforced by the predicate $\EF \textsf{
+  not handler }$, which is true only when $\EF$ is of the form $u~(\many{t},
+[~], \many{n})$.
 
 With this in mind, we now give the updated rule for the catchall pattern
 matching on frozen terms. This can be seen in Figure \ref{fig:catchall-freeze}.
-It expresses that an arbitrary frozen \emph{use} can be matched against the
+It expresses that an arbitrary frozen term can be matched against the
 computation pattern $\effin{x}$. The suspended, unfrozen computation $\thunk{m}$
 is then bound to $x$, in a similar way to other \textsc{B-CatchAll} rules.
+Observe that this maintains no-snooping; we don't know that the frozen
+computation performed an effect.
 
 \begin{figure}[t]
 %% \figrule
@@ -1691,7 +1662,7 @@ is then bound to $x$, in a similar way to other \textsc{B-CatchAll} rules.
 %\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
 %amb. $\venv$ and binds $\venv$.}
 \begin{mathpar}
-\inferrule[B-CatchAll-Interrupt]
+\inferrule[B-CatchAll-Freeze]
   {\adjact{\sigs}{\adj}{\sigs'}}
   {\bindsc{\effin{x}}{\effin{\adj}A}{\freeze{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
 \end{mathpar}
@@ -1701,66 +1672,60 @@ is then bound to $x$, in a similar way to other \textsc{B-CatchAll} rules.
 %% \figrule
 \end{figure}
 
-\begin{figure}[t]
-%% \figrule
-\flushleft
-\begin{mathpar}
-%% \\
-\inferrule[R-Interrupt]
-  { }
-  {m \redtou \freeze{m}}
-%% \\
-\end{mathpar}
+%% \begin{lstlisting}
+%% suspend : {Unit -> <Stop, Go> Unit -> Maybe {[Console] Unit} -> [Console] Unit}
+%% suspend <r> <stop -> c> _ =
+%%     suspend unit (c unit) (just r)
+%% suspend <_>          <go -> c>   (just res) =
+%%     suspend res! (c unit) nothing
+%% suspend unit         <_>         _ = unit
+%% \end{lstlisting}
 
-\caption{Use interruption rule}
-\label{fig:r-interrupt}
-%% \figrule
-\end{figure}
-
-%% We also need to supplement the operational semantics of Figure
-%% \ref{fig:small-step} with a rule for a use $m$ becoming interrupted. This extra
-%% required rule can be seen in
-
-Figure~\ref{fig:r-interrupt} shows how uses $m$ become interrupted. This rule
-supplements the operational semantics of Figure~\ref{fig:small-step}. It states
-that at any point, a use term can reduce to the same term but suspended. At this
-point, the term cannot reduce any further; observe that $\freeze{~}$ is not an
-evaluation context. The term then blocks until unfrozen. Note how similar this
-is to regular command invocations, which block until their continuation is
-invoked.
-
-\todo{Check that just uses is enough}
+Note that we can simply reuse the \code{suspend} handler from
+Section~\ref{relaxing-catches}. Everything works largely the same; we run the
+leftmost argument until it freezes or invokes a command, at which point we run
+the next argument. The frozen term can then be bound to the catch-all pattern, if
+this is the pattern that matches.
 
 \todo{Talk about how this achieves our goal. }
-
-The addition of this rule introduces non-determinism into the language; at any
-point, a use can either step as normal (e.g. through the \textsc{R-Handle}
-rule), or it can be interrupted. An interrupted term $\interrupt{m}$ can no
-longer reduce; it is blocked until it is resumed by the \textsc{R-Handle} rule.
-
-\todo{Talk about non-determinism as a result of this}
-\todo{Maybe move non-determinism to the next section?}
 
 
 \section{Yielding}
 \label{sec:inserting-yields}
 
-Observe that the approach of Section \ref{sec:relaxingcatches} can only
-interrupt command invocations. If \code{runner} were instead a sequence of pure
-computations\footnote{I.e. \code{runner! = 1 + 1; 1 + 1; 1 + 1; ...}}, we would
-be unable to interrupt it; it does not invoke commands. In this section we show
-how we can easily interrupt \emph{arbitrary terms}, without defining any special
-new syntax or constructions. Furthermore, we do this in a
-way that lets the programmer choose how to resume the term, without being set in
-stone.
+Observe that the freezing approach of Section~\ref{sec:freezing-terms} ends up
+reimplementing a lot of the behaviour of the freezing of ordinary commands,
+without adding much new behaviour. It turns out that we can get the exact same
+behaviour by just inserting a command invocation into the term instead, and
+handling this as normal.
+%
+%% This
+%% will also freeze the computation up until the nearest handler of the inserted
+%% command.
 
-Recall the simple \textsf{Yield} effect from Section~\ref{sec:concurrency}; it
-supports one operation, $\textsf{yield} : \textsf{Unit}$. Its primary use is to
-give the programmer access to the continuation so that they might perform some
-scheduling or other control flow operations. Our solution is simple; whenever we
-are in an evaluation context where the ability contains the \textsf{Yield}
-effect, we insert an invocation of \textsf{yield} before the term in question.
-This is expressed formally in Figure~\ref{fig:insert-yield}.
+%% We use the familair \Yield~effect from Section~\ref{sec:concurrency} for this
+%% task.
+
+%% Observe that the approach of Section~\ref{sec:relaxingcatches} can only
+%% interrupt command invocations. If \code{runner} were instead a sequence of pure
+%% computations\footnote{I.e. \code{runner! = 1 + 1; 1 + 1; 1 + 1; ...}}, we would
+%% be unable to interrupt it; it does not invoke commands. In this section we show
+%% how we can easily interrupt \emph{arbitrary terms}, without defining any special
+%% new syntax or constructions. Furthermore, we do this in a
+%% way that lets the programmer choose how to resume the term, without being set in
+%% stone.
+
+Recall the simple \Yield~effect from Section~\ref{sec:concurrency}; it
+supports one operation, $\yield : \textsf{Unit}$.
+%
+Whilst it sounds boring from the type, remember that the invocation of an effect
+offers up the continuation of the program as a first-class value, so that they
+might concurrently run the function with other functions or control execution by
+some other means.
+
+Our solution is simple; whenever we are in an evaluation context where the
+ability contains the \Yield effect, we insert an invocation of \yield before the
+term in question. This is expressed formally in Figure~\ref{fig:insert-yield}.
 
 \todo{Do we need to worry about conversion from Use -> Constrction}
 
@@ -1772,7 +1737,7 @@ $\boxed{m \redtou m'} $
 %
 %
 \inferrule[R-Yield-EF]
-          { \EC~\textsf{allows}~\textsf{Yield} }
+          { \EC~\textsf{allows}~\yield }
           { \EC[m] \redtou \EC[\textsf{yield!}; m] }
 \end{mathpar}
 %
@@ -1783,7 +1748,7 @@ $\boxed{m \redtou m'} $
 \end{figure}
 
 Note that \textsc{R-Yield-EF} relies on the predicate
-$\EF[\EC]~\allows~c$. This states that the \textsf{Yield}
+$\EF[\EC]~\allows~c$. This states that the \yield
 interface is in the ability of the term in the evaluation context.
 
 For any frame apart from argument frames,
@@ -1797,38 +1762,42 @@ follows;
 \end{equations}
 
 
-\noindent For an ability $\sigs = \seed\pipe\ext$, $\sigs~\allows~c$ is true if
+\noindent For an ability $\sigs = \seed\pipe\ext$, the predicate $\sigs~ \allows~c$ is true if
 $c \in I$ for some $I \in \ext$.
 
-Informally, $\EC~\allows~c$ is true when $\EC$ is a handler where the command
-$c$ is a member of an interface in its ability when modified by the adaptor at
-the corresponding position.
+Informally, $\EC~\allows~c$ is true when $\EC$ is a handler where the ability at
+the hole contains an interface which offers \yield~as a command. This could be a
+handler with \yield~in its own ability, passing it down to the relevant
+argument, or a handler that handles \yield~but does not have \yield~in its
+ability.
 
-\todo{Clean this up}
+\todo{Clean this up --- Maybe add examples in code?}
 
 We also make use of an auxiliary combinator $\_ ; \_$. This is the traditional
 sequential composition operator $\textsf{snd}~x~y~\mapsto~y$, where both
 arguments are evaluated and the result of the second one is returned. We see
 that it would be a type error if we were to insert a \code{yield} command in a
-context where \textsf{yield} was not a part of the ability.
+context where \yield was not a part of the ability.
 
-\todo{Maybe elaborate on this --- give the type for \textsf{snd}, give the
-  typing deriviation to show that insertion is well typed?}
+%% \todo{Maybe elaborate on this --- give the type for \textsf{snd}, give the
+%%   typing deriviation to show that insertion is well typed?}
+%%
+%% Basically done in the subject reduction proof
 
 In the context of \textsc{R-Yield-EF} this means we will perform the
-\textsf{yield} effect and then the use $m$, but discard the result from
-\textsf{yield}.
+\yield effect and then the use $m$, but discard the result from
+\yield.
 
 Observe that this gives us fine-grained control over which parts of our program
 become asynchronous. One might want a short-running function to not be
 pre-emptible and just run without pause; conversely, one might want a
 long-running function to be interruptible. The programmer gets to choose this by
-labelling the functions with \textsf{Yield} in the ability.
+labelling the functions with \yield in the ability.
 
 \section{Counting}
 
 The semantics given by Section~\ref{sec:inserting-yields} is fine, but is
-non-deterministic; at any point, we can choose to either insert a \textsf{yield}
+non-deterministic; at any point, we can choose to either insert a \yield
 invocation or carry on as normal. Furthermore, we do not particularly need to
 yield very frequently; we might rather yield every 1000 reduction steps or so.
 
@@ -1875,11 +1844,11 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 
 \\
 \inferrule[R-Yield-Can]
-          { \EC~\textsf{allows}~\textsf{Yield} }
+          { \EC~\textsf{allows}~\yield }
           { \EC[m]; \yieldc~\redtou~\EC[\textsf{yield!}; m]; \justc{0} }
 \\
 \inferrule[R-Yield-Can't]
-          { \neg (\EC~\textsf{allows}~\textsf{Yield}) \\
+          { \neg (\EC~\textsf{allows}~\yield) \\
             m; \justc{n} \redtou m'; c' }
           { \EC[m]; \yieldc~\redtou~\EC[m]; \yieldc }
 \\
@@ -1897,7 +1866,7 @@ incrementing the counter by 1. Here we use $\plusc$, which will set the counter
 to be $\yieldc$ if the addition brings it over the threshold value.
 
 \textsc{R-Yield-Can} and \textsc{R-Yield-Can't} dictate what to do if we have to
-yield as soon as possible. If the evaluation context allows \textsf{yield}
+yield as soon as possible. If the evaluation context allows \yield~
 commands to be inserted we do so and reset the counter. If not, but the term
 could otherwise reduce if the counter had a different value, then we make that
 transition, still maintaining the $\yieldc$ signal.
@@ -1908,17 +1877,42 @@ rely on the operating system to provide a timer interrupt, which is handled as a
 first-class effect. Our system is more self-contained; the timing is implemented
 within the language itself and doesn't rely on the operating system providing
 interrupts. Furthermore, we get fine-grained control over when the timer can
-fire, as we can choose to put \textsf{Yield} in the ability of interruptible
+fire, as we can choose to put \yield~in the ability of interruptible
 terms.
 
 \todo{Maybe remove part about 'fine-grained'ness as they can just pick whether
   or not to handle the timer effect anyway?}
 
+\paragraph*{Determinism}
+Observe that the semantics of Frank equipped with the rules in
+Figure~\ref{counting-rules} are now deterministic; for any term and counter
+pair, there is only one possible reduction we can make. This is a clear
+improvement on the nondeterministic semantics of Section~\ref{sec:yielding},
+whilst still maintaining a similar behaviour; we are simply \emph{restricting}
+the parts of the program where we can yield.
+
+We can characterise this by saying that \countingfrank~\emph{implements}~
+\nondetfrank; that is to say the counting system gives a deterministic way to
+perform the nondeterministic system. We can formally state this follows.
+
+\begin{theorem}[Counting Implements Nondeterminism]
+%% \begin{restatable}[Counting Implements Nondeterminsim]{theorem}{countimplynondet}\label{thm:count-impl-nondet}
+\begin{itemize}
+\item For any use $m$ and counter $\counter$, if $m, \counter~\redtou~
+  m',\counter'$ in \countingfrank~ then $m~\redtou~m'$ in \nondetfrank.
+\item For any construction $n$ and counter $\counter$, if $n, \counter~\redtou~
+  n',\counter'$ in \countingfrank~ then $n~\redtou~n'$ in \nondetfrank.
+\end{itemize}
+%% \end{restatable}
+\end{theorem}
+
+One might consider a different approach, rather than a global counter, which
+would also implement the nondeterministic semantics.
 
 \section{Handling}
 \label{sec:handling}
 
-One of the strengths of this approach is that these inserted \textsf{yield}
+One of the strengths of this approach is that these inserted \yield
 commands are first-class Frank commands; the programmer can choose how to handle
 them, potentially choosing some very complicated scheduling scheme.
 
@@ -1970,7 +1964,7 @@ Thus the only new cases are \textsc{R-Yield-Can} and \textsc{R-Yield-Can't}.
 
 \begin{itemize}
 \item[\Cse] \textsc{R-Yield-Can}
-  By the assumption we have that $\EC~\allows~\textsf{yield}$. This only holds
+  By the assumption we have that $\EC~\allows~\yield$. This only holds
   if the context is of the form
   \[\EC[~] = \cu (v : \thunk{\many{\effin{\adj} A
       \to}~\effout{\sigs}B})~(\many{t},[~],\many{n'})\]
@@ -1982,10 +1976,10 @@ Thus the only new cases are \textsc{R-Yield-Can} and \textsc{R-Yield-Can't}.
   Then by inversion on \textsc{T-App} we have
   $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\EC'[n]}$. We now
   require that
-  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\EC'[\textsf{yield};
-      n]}$. This follows from the assumption $\EC~\allows~\textsf{yield}$, which
-  entails that $\textsf{yield}~\in~\sigs'_{|\many{t}|}$. Thus
-  $\inferskgs{\EC[\textsf{yield}; n]}{B}$.
+  $\checksk{\Gamma}{\sigs'_{|\many{t}|}}{A_{|\many{t}|}}{\EC'[\yield;
+      n]}$. This follows from the assumption $\EC~\allows~\yield$, which
+  entails that $\yield~\in~\sigs'_{|\many{t}|}$. Thus
+  $\inferskgs{\EC[\yield; n]}{B}$.
 
 \item[\Cse] \textsc{R-Yield-Can't}
   This case is more straightforward. By the assumption we have that the
