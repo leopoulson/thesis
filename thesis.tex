@@ -1875,15 +1875,15 @@ terms.
 
 \paragraph*{Determinism}
 Observe that the semantics of Frank equipped with the rules in
-Figure~\ref{counting-rules} are now deterministic; for any term and counter
+Figure~\ref{sec:counting-rules} are now deterministic; for any term and counter
 pair, there is only one possible reduction we can make. This is a clear
-improvement on the nondeterministic semantics of Section~\ref{sec:yielding},
+improvement on the nondeterministic semantics of Section~\ref{sec:inserting-yields},
 whilst still maintaining a similar behaviour; we are simply \emph{restricting}
 the parts of the program where we can yield.
 
 We can characterise this by saying that \countingfrank~\emph{implements}~
 \nondetfrank; that is to say the counting system gives a deterministic way to
-perform the nondeterministic system. We can formally state this follows.
+perform the nondeterministic system.
 
 \begin{theorem}[Counting Implements Nondeterminism]
 %% \begin{restatable}[Counting Implements Nondeterminsim]{theorem}{countimplynondet}\label{thm:count-impl-nondet}
@@ -2493,158 +2493,88 @@ one.
 \chapter{Examples}
 \label{chap:examples}
 
-\section{Pre-emptive Concurrency}
+The combination of our \code{Promise} interface with the pre-emptive concurrency
+of Section~\ref{chap:preemptive-concurrency} lets us express complex concurrent
+programs in a simple, direct manner. In this section we show some examples of
+these.
 
-An essential feature of our asynchronous effects system is that it supports
-pre-emptive concurrency; that is, the suspension and resumption of threads
-non-cooperatively. Naturally, this relies on the insertion of yields as
-discussed in Chapter~\ref{chap:preemption}.
+\todo{Improve above paragraph}
 
-We supplement the signals supported in our program with two more;
+\section{Pre-emptive Scheduling}
+
+%% An essential feature of our asynchronous effects system is that it supports
+%% pre-emptive concurrency; that is, the suspension and resumption of threads
+%% non-cooperatively. Naturally, this relies on the insertion of yields as
+%% discussed in Chapter~\ref{chap:preemption}.
+
+%% We supplement the signals supported in our program with two more;
+
+Whilst we have already shown how to pre-emptively schedule several threads in
+Section~\ref{sec:handling}, we might want to have a more robust way of doing
+this; the multihandler strategy is fixed in a left-to-right evaluation order.
+
+\todo{Add more}
 
 \begin{lstlisting}
 data Sig = <@\ldots@> | stop Int | go Int
 \end{lstlisting}
 
-The integer payload can act as a counter, or as a way to tell specific threads
-to stop or go. The blocking or non-blocking behaviour then depends on the
-promises for these signals.
+We add two more signals to the \code{Sig} datatype. The integer payload can act
+as a counter, or as a way to tell specific threads to stop or go. The blocking
+or non-blocking behaviour then depends on the promises for these signals.
 
 \begin{lstlisting}
-onStop : {Int -> <@\greytext{[Promise[Console], Console, Yield, RefState]}@> Unit}
-onStop id =
-    let gp = promise (prom {s -> goPromise id s}) in
-    await gp;
-    promise (prom {s -> stopPromise id s});
-    unit
+onStop : {Int -> <@\greytext{[Promise, Yield, RefState]}@> Unit}
+onStop id = let gp = promise (prom {s -> goPromise id s}) in
+            await gp;
+            promise (prom {s -> stopPromise id s});
+            unit
 
-stopPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise[Console], Console, Yield, RefState]}@>Unit}}
-stopPromise id (stop n) =
-   if (n == id)
-     { just { onStop id } }
-     { nothing }
+stopPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise, Yield, RefState]}@>Unit}}
+stopPromise id (stop n) = if (n == id)
+                            { just { onStop id } }
+                            { nothing }
 stopPromise id _ = nothing
 \end{lstlisting}
 
 \code{stopPromise} is another guarded interrupt handler; it will only fire its
-body if the payload to \code{stop} is the id of the thread. The body is then
-fairly simple; it installs a promise waiting for \code{go} and immediately
-starts blocking. The rest of the computation can not proceed until the
-corresponding go message is received. Once the go promise is fulfilled, the
-non-blocking stop promise is reinstalled.
+body if the payload to \code{stop} is the thread's ID. The body then installs a
+promise waiting for \code{go} and immediately awaits it, starting to block. The
+rest of the computation can not proceed until the corresponding go message is
+received. Once the correct go promise is received the promise is fulfilled adn
+the rest of the computation can start again, and the \code{stop} interrupt
+handler is reinstalled.
 
 \begin{lstlisting}
-goPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise[Console], Console, Yield, RefState]}@>Unit}}
-goPromise id (go n) =
-    if (n == id)
-      { just {unit} }
-      { nothing }
+goPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise, Yield, RefState]}@>Unit}}
+goPromise id (go n) = if (n == id)
+                         { just {unit} }
+                         { nothing }
 goPromise id _ = nothing
 \end{lstlisting}
 
 \code{goPromise} is simple in comparison; if it receives the correct \code{go} signal
 it just returns \code{unit}.
 
-We can then make a function pre-emptible by just installing a stop-waiting promise
-in front of the function code;
+%% We can then make a function  by just installing a stop-waiting promise
+%% in front of the function code;
+
+We can then install the stop interrupt handler before a computation to make it
+schedulable. The computation being scheduled is then unaware it is being
+scheduled, as desired.
 
 \begin{lstlisting}
 counter : {Int -> <@\greytext{[Console, Yield]}@>Unit}
 counter x = ouint x; print " "; sleep 200000; counter (x + 1)
 
-thread1 : {<@\greytext{[Promise[Console], Console, RefState, Yield]}@> Unit}
-thread1! = promise (prom {s -> stopPromise 0 s}); counter 0
+thread : {<@\greytext{[Promise, Console, RefState, Yield]}@> Unit}
+thread! = promise (prom {s -> stopPromise 0 s}); counter 0
 \end{lstlisting}
 
-Observe that all we have to do is precompose with the promise installer; the
-rest of the code goes on unaware that it is being pre-empted. Threads can also
-then communicate etc on top of this.
-
-\todo{Is this example even interesting now that we've already got it baked into
-  the language?}
-
-\section{Async-Await}
-
-Here we show how our asynchronous effects system can express the familiar
-async-await abstraction.
-
-Consider that we want to asynchronously run web requests using the built-in
-\code{getRequest} operation. These return a value of type \code{String}, being
-hte result of the request. First we add two more signals to our set of available
-signals;
-
-\begin{lstlisting}
-data Sig = <@\ldots@> | call {String} Int | result String Int
-\end{lstlisting}
-
-\todo{Observe that this is a higher-order effect - something aeff lacks!}
-
-%% \noindent The thunked argument to \code{call} is the computation we want to run.
-
-\noindent The signal \code{call} is used to start an asynchronous operation; the
-thunked argument is the computation we want to run. \code{result} is the signal
-used by the running thread to indicate that it has completed the computation and
-is returning the \code{String} result. The \code{Int} arguments are for call
-IDs, so that the wrong results are not re-read.
-
-Unlike other implementations, the Frank realisation of async-await does not
-dynamically create new threads to run asynchronous tasks. Instead, we have a
-dedicated thread that only performs these asynced processes. This may seem
-inefficient, however see that when not executing a process the thread will be
-instantly skipped in the scheduler, so we have no overhead costs.
-
-We how show the \code{async} function that a caller would use to issue a new
-asynchronous task;
-
-\begin{lstlisting}
-resultWaiter : {Int -> <@\greytext{[Promise[Web, Console]]}@> Pid String <@\greytext{[WebThreads]}@>
-resultWaiter callNo =
-  promise (prom { (result res callNo') -> if (callNo == callNo') { just {res} } {nothing}
-                  | _ -> nothing})
-
-async : {<@\greytext{[Console, Web]}@> String} -> Ref Int ->
-    <@\greytext{[WebThreads]}@> Pid String <@\greytext{[WebThreads]}@>
-async proc callCounter =
-    let callNo = read callCounter in
-    let waiter =
-      <@\greytext{<Console, RefState, Web, Yield>}@>(resultWaiter callNo) in
-    signal (call proc callNo);
-    write callCounter (callNo + 1);
-    waiter
-\end{lstlisting}
-
-So \code{async} takes the process to be run and a reference to the callcounter.
-It then installs another promise, \code{resultWaiter}, which waits for the
-corresponding \code{result} signal to be received. \code{resultWaiter} is an
-example of a \emph{guarded} interrupt handler; it only fires if a certain
-condition regarding to the signal's payload holds (i.e. that \code{callNo ==
-  callNo'}). After installing \code{resultWaiter}, \code{async} sends a
-\code{call} signal with the process and callNo as argument, increments the call
-counter and returns the result-waiting promise.
-
-\begin{lstlisting}
-onRun : {{<@\greytext{[Console, Web]}@> String} -> Int -> <@\greytext{[WebThreads]}@> Unit}
-onRun proc callId =
-    let res = <@\greytext{<Promise, RefState, Yield>}@> proc! in
-    signal (result res callId);
-    <@\greytext{<Console, RefState, Web, Yield>}@> runner!;
-    unit
-
-runner : {[Promise[Web, Console]] Pid Unit [WebThreads]}
-runner! =
-    promise (prom {(call proc callId) -> just {onRun proc callId}
-                  | _ -> nothing})
-\end{lstlisting}
-
-\code{runner} is the process that runs on the worker thread. This simply
-installs a promise that responds to \code{call} signals. On receipt of a
-\code{call} it runs the delivered process synchronously; once it is finished it
-sends a \code{result} signal and then finally reinvokes the \code{runner}.
-%
-Note that \code{proc} can still have \code{yield} calls inserted into it, so
-that this doesn't cause the whole program to block.
-
-\todo{Example of how it gets used.}
+Now all that remains is to have a source of \code{stop} and \code{go} signals.
+This could just be a standard round-robin scheduler or some more sophisticated
+strategy. One of the strengths of effect handlers for concurrency is the ability
+to abstract over scheduling strategies, and this strength is still present here.
 
 \section{Futures}
 \label{sec:futures}
@@ -2686,9 +2616,92 @@ then executes \code{prod}, which then lets the final one run. This behaviour
 depends on signals being able to execute many promises at once (that is,
 behaving like \emph{deep} rather than shallow handlers).
 
-\section{Cancelling Tasks}
 
-\todo{Link back to the async/await w/ dynamic}
+
+\section{Async-Await with Workers}
+
+Our asynchronous effects system can express the familiar async-await
+abstraction. This had previously been implemented in Frank by forking new
+threads, then to be handled by a co-operative scheduler like in
+Section~\ref{sec:concurrency}. We realise it by using a controller thread, which
+will send tasks to one of a set of $n$ worker threads. When these worker threads
+are not working, they are instantly skipped; hence there is not much
+inefficiency associated with having extra idle workers.
+
+We first show how the caller communicates with the controller.
+
+\begin{lstlisting}
+resultWaiter : {Int -> Sig ->  Pid String [WebEffs]}
+resultWaiter callNo (result res callNo') =
+    if (callNo == callNo') { just {res} } { nothing }
+resultWaiter _ _ = nothing
+
+async : {[InTask] String} -> Ref Int -> Pid String [WebEffs]
+async proc callCounter =
+    let callNo = read callCounter in
+    let waiter = {s -> resultWaiter callNo s} in
+    signal (call proc callNo);
+    write callCounter (callNo + 1);
+    waiter
+\end{lstlisting}
+
+\todo{Talk about interface aliases}
+
+We use this function to issue a new asynchronous task. We keep a global counter
+to give each call a unique identifier. We then install an interrupt handler that
+waits for a result and simply returns it. Finally we send a \code{call} signal
+with the process and return the result interrupt handler. Observe that
+\code{async} returns the promise waiting for the correct result. As such, the
+\code{await} operation is just the built-in \code{await} operation; we don't
+need to define any extra functions.
+
+\code{call} signals are handled by the controller thread. This thread keeps
+track of which of the workers do not currently have a task running, and
+also installs a promise to set its state to idle once the corresponding
+\code{result} message is received.
+
+\begin{lstlisting}
+onResult : {Ref (List (Maybe Int)) -> Int -> Sig -> Maybe {[WebEffs] Unit}}
+onResult active wid (result res cid) =
+    just { write active (putIn nothing wid (read active)) }
+onResult _ _ _ = nothing
+
+onAsyncBody : {Ref (List (Maybe Int)) -> {[InTask] String} -> Int -> [WebEffs] Unit}
+onAsyncBody active p callId =
+    case (findFree (read active))
+        { nothing -> print "All workers are busy."
+        | (just wid) ->
+            write active (putIn (just callId) wid (read active));
+            promise (prom {s -> onResult active wid s});
+            signal (workIn p wid callId)};
+    promise (prom {s -> onAsync active s}); unit
+\end{lstlisting}
+
+Workers listen for a \code{workIn} message; when one comes in with their ID in
+the payload, they simply perform the computation and send a signal with the
+result.
+
+\begin{lstlisting}
+workProm : {Int -> Sig -> Maybe {[WebEffs] Unit}}
+workProm wid (workIn p wid' callId) =
+    if (wid == wid')
+       { just {let res = p! in
+               signal (result res callId);
+               worker wid; unit}}
+       { nothing }
+workProm _ _ = nothing
+
+worker : {Int -> Pid Unit [WebEffs]}
+worker wid = promise (prom {s -> workProm wid s})
+\end{lstlisting}
+
+This \code{result} signal triggers the interrupt handler installed by the
+\code{async} caller, but also triggers the promise installed by the controller,
+to inform it that the worker is now idle. This ability to trigger multiple
+promises with one message is a subtle but useful feature of the system.
+
+
+\section{Cancelling Tasks}
 
 Because we are working in a language equipped with effect handlers, we can
 easily write a handler for the \textsf{Cancel} effect, which just gets rid of
@@ -2702,27 +2715,51 @@ the continuation and replaces it with some default value (e.g. \code{unit}).
   hdlCancel unit          = unit
 \end{lstlisting}
 
-We can use this to cancel a task issued with \code{async}. Recall that these
-tasks run on their own thread. As such, we can just cancel the entire thread at
-the top-level.
+%% We can use this to cancel a task issued with \code{async}. Recall that these
+%% tasks run on their own thread. As such, we can just cancel the entire thread at
+%% the top-level.
+
+WE can use this to cancel a task issued with \code{async}. Recall that tasks run
+on their own worker thread. As such, all we need to do to cancel them is
+reinstall the worker promise --- which waits for new tasks --- and then invoke
+the cancel effect. As such, our worker code becomes
+
+\begin{lstlisting}
+canceller : {Int -> Int -> Sig -> Maybe {[WebEffs] Unit}}
+canceller wid callId (cancelCall callId') =
+    if (callId == callId')
+        { just {worker wid; cancel!} }
+        { nothing }
+canceller _ _ _ = nothing
+
+workProm : {Int -> Sig -> Maybe {[WebEffs] Unit}}
+workProm wid (workIn p wid' callId) =
+    if (wid == wid')
+       { just {<@\texthighlight{promise (prom \{s -> canceller wid callId s\}}@>;
+               let res = p! in
+               signal (result res callId);
+               worker wid; unit}}
+       { nothing }
+workProm _ _ = nothing
+\end{lstlisting}
 
 We have to modify the handler for the \textsf{Promise} effect for this. Recall
-that when we install a promise, we convert it to a form that takes the rest of
-the computation and reinstalls the promise handler. We need to then wrap this in
-a handler for \textsf{Cancel} effects again; this is because user-level promises
-could perform \textsf{Cancel} effects. Thus, we convert them to
+that when we install a promise, we convert it to a form that takes composes the
+body of the promise with the interrupted computation and rehandles the
+\code{Promise} effects that this might perform. We need to then wrap this in a
+handler for \textsf{Cancel} effects again; this is because user-level promises
+could perform \textsf{Cancel} effects, and we want to cancel the \emph{whole}
+computation, not just the body of the promise.
 
 \begin{lstlisting}
 case (cbMod sig)
     { nothing -> nothing
     | (just susp) ->
-      just { stopCancel (hdl thId thrs (susp!; <LCancel, Promise> rest!)) }}
+      just { <@\texthighlight{stopCancel}@> (hdl thId thrs (susp!; <LCancel, Promise> rest!)) }}
 \end{lstlisting}
 
-\todo{Talk about informing the scheduler that the thread has been cancelled as well.}
-
-The realisation of cancellable function calls
-in~\aeff(\cite{ahman2020asynchronous}) was to start awaiting a new promise that
+The realisation of cancellable function calls in
+\aeff(\cite{ahman2020asynchronous}) was to start awaiting a new promise that
 will never be installed. This leads to a space leak as unfulfilled promises
 build up. Our approach improves on this as the cancelled calls do genuinely
 disappear.
