@@ -2776,35 +2776,44 @@ operator~\cite{leijen2017structured}.
 \todo{Think of a better way to make reference to Daan's work}
 
 \begin{lstlisting}
+resultWaiter : {String -> Int -> Int -> Int
+    -> Maybe {[WebEffs] String}}
+resultWaiter res callNo callA callB =
+    if (callNo == callA)
+        { just { signal (cancelCall callB); res} }
+        { if (callNo == callB)
+            { just { signal (cancelCall callA); res} }
+            { nothing }}
+
 interleave : {{[InTask] String} -> {[InTask] String}
           -> Ref Int -> [WebEffs] Pid String [WebEffs]}
 interleave procA procB callCounter =
-    -- Issue the two calls with signals.
-    let callNoA = read callCounter in
-    write callCounter (callNoA + 1);
-    let callNoB = read callCounter in
-    write callCounter (callNoB + 1);
+    let callA = read callCounter in
+    write callCounter (callA + 1);
+    let callB = read callCounter in
+    write callCounter (callB + 1);
 
-    -- Install a waiter to wait for the first result
-    let ileaveWaiter = (leaveResWaiter callNoA callNoB) in
+    let ileaveWaiter =
+        promise (prom {(result res callNo) ->
+            resultWaiter res callNo callA callB
+                      | _ -> nothing
+        }) in
 
-    -- Signal to start the other two
-    signal (call procA callNoA);
-    signal (call procB callNoB);
+    signal (call procA callA);
+    signal (call procB callB);
 
-    -- Just return waiter.
     ileaveWaiter
 \end{lstlisting}
 
-This will set two threads running on independent threads. It then installs an
-interrupt handler for result messages; whichever result returns first, we cancel
-the other task and just return the result of the original one.
+This will issue the two tasks on different threads. We then install an interrupt
+handler for \code{result} signals; whichever result is received first we return
+and cancel the other task.
 
-This lets us write timeouts for functions; we can cancel a task if it takes too
-long to return (e.g. a request to a web server that is inactive), or run two
-remote identical requests to different services and just take the result of
-whichever one returns first. This also generalises to the $n$-ary case in the
-natural way.
+This lets us write timeouts for functions, where we interleave a potentially
+long-running request with a timer; we cancel the request if it takes too long.
+We can also run two identical requests to different services and just take the
+result of the one that returns first. The \code{interleave} operator can be
+composed with itself to yield the $n$-ary operator \code{interleave} operator.
 
 
 
