@@ -89,6 +89,7 @@
 
 %% abstract for inline code
 \newcommand{\code}[1]{\lstinline{#1}}
+\newcommand{\codem}[1]{\lstinline[mathescape]{#1}}
 
 
 \newcommand{\highlight}[1]{%
@@ -576,44 +577,74 @@ Frank is a functional programming language, designed with the use of algebraic
 effects at its heart. As such, Frank has an effect type system used to track
 which effects a computation may use.
 
-Frank also offers very fine-grained control over computations. It clearly
+Frank offers very fine-grained control over computations. It clearly
 distinguishes between computation and value, and offers \emph{multihandlers} to
 carefully control when computations are evaluated. This combined with effect
 handling provides a very rich foundation for expressing complex control
 structures.
 
-In this chapter, we introduce the language, and show why it is so well-suited to
-our task. We assume some familiarity with typed functional programming, and skip
-over some more traditional aspects of the language --- algebraic data types,
-pattern matching, etc --- so we can spend more time with the novel, interesting
-parts of the language.
+In this chapter we introduce Frank, and show why it is so well-suited to our
+task. We assume some familiarity with typed functional programming, and skip
+over some common features of Frank --- algebraic data types, pattern matching,
+etc. --- so we can spend more time with the novel, interesting parts.
 
 \section{Types, Values and Operators}
 
 Frank types are distinguished between \emph{effect types} and \emph{value
   types}. Value types are the standard notion of type; effect types are
-used to describe where certain effects can be performed and handled.
+used to describe where certain effects can be performed and handled. Value types are further divided into traditional data types, such a \code{Bool},
+\code{List X}, and \emph{computation types}.
 
-Value types are further divided into traditional data types, such a \code{Bool},
-\code{List X}, and \emph{computation types}. Computation types are used to
-define an operator; they come in the general form \code{\{<Effect> X -> ... ->
-  [Effects] Y\}}. This type expresses that the operator can handle some effect
-in the first argument and then performs some other effects as a result,
-returning a value of type \code{Y}.
+A computation type
+%
+\lstinline[mathescape]!X$_1$ -> ... -> X$_m$ -> [I$_1$, ..., I$_n$]Y!
+%
+%% This type expresses that the operator can handle some effect in the first
+%% argument and then performs some other effects as a result, returning a value of
+%% type \code{Y}.
+expresses that we take $m$ arguments and return a value of type \code{Y}. The
+return type expresses the \emph{ability} the computation needs access to, being
+a list of $n$ \emph{interface} instances. An interface is a collection of
+\emph{commands} which are offered to the computation.
 
-Frank then specialises effect handling to traditional function application; a
-function is the special case of an operator that handles no arguments. We see
-that a function type \code{\{X -> Y -> Z\}} is just a special case of the
-general operator type where no effects are handled or performed. Throughout this
-thesis, we call
+%% Frank then specialises effect handling to traditional function application; a
+%% function is the special case of an operator that handles no arguments. We see
+%% that a function type \code{\{X -> Y -> Z\}} is just a special case of the
+%% general operator type where no effects are handled or performed. Throughout this
+%% thesis, we call
 
-Thunks then are the special case of an $n$-ary function that takes 0 arguments.
-A thunk, being a suspended computation, that will result in a value of type
-\code{Bool} has type \code{\{Bool\}}. This gives us fine-grained control over
-executing computations, and also translates to control over when to execute
-effects; this proves to be very useful later.
+Thunks are then the special case of an $n$-ary function that takes 0 arguments.
+We can evaluate them --- performing the suspended computation --- with the 0-ary
+sequence of arguments, denoted \code{!}. Computations are suspended by wrapping
+them in braces.
 
-\todo{Example --- maybe fire missiles one?}
+This gives us fine-grained control over when we want to evaluate computations.
+For instance, we might want the sequential composition operator \code{snd} (also
+commonly known as the semicolon operator);
+
+\begin{lstlisting}
+  snd : {X -> Y -> Y}
+  snd x y = y
+\end{lstlisting}
+
+Frank is a left-to-right call-by-value language; arguments to functions are
+evaluated from left-to-right, until they become a value. In the case of
+\code{snd}, \code{x} is first evaluated, then \code{y}, which is finally
+returned. Compare this to \code{if};
+
+\begin{lstlisting}
+if : {Bool -> {X} -> {X} -> X}
+if true  yes no = yes!
+if false yes no = no!
+\end{lstlisting}
+
+\noindent The branches are given as thunks, where a single thunk is evaluated
+depending on the condition. If we did not take this approach both cases would be
+evaluated, which is clearly not the intended semantics of \code{if}. Frank's
+distinction between computation and value make controlling evaluation simple and
+pleasing.
+
+%% \todo{Example --- maybe fire missiles one?}
 
 \section{Effects and Effect Handling}
 \label{sec:effects}
@@ -632,10 +663,10 @@ operations (commands), \code{get} and \code{put}. In Frank, this translates to
 \end{lstlisting}
 
 The type signatures of the operations mean that \code{get} is a 0-ary operation
-which is \emph{resumed} with a value of type \code{X}, and \code{put} takes a value of
-type \code{X} and is resumed with \code{unit}. Programs get access to an interface's
-command by including them in the \emph{ability} of the program. Commands are
-invoked just as normal functions;
+which is \emph{resumed} with a value of type \code{X}, and \code{put} takes a
+value of type \code{X} and is resumed with \code{unit}. Computations get access
+to an interface's commands by including them in the \emph{ability} of the
+program. Commands are invoked just as normal functions;
 
 \begin{lstlisting}
   xplusplus : {[State Int] Unit}
