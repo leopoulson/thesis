@@ -677,12 +677,17 @@ program. Commands are invoked just as normal functions;
 
 \paragraph*{Handling Operations}
 
-Traditioanl functions in Frank are a specialisation of Frank's handlers; that is
-to say, functions are handlers that handle no effects. A handler for an
-interface pattern matches \emph{on the operations} that are invoked, as well as
-on the \emph{values} that the computation can return. Furthermore, the handler
-gets access to the \emph{continuation} of the calling function as a first-class
-value. Consider the handler for \code{State};
+%% Traditional functions in Frank are a specialisation of Frank's handlers; that is
+%% to say, functions are handlers that handle no effects. A handler for an
+%% interface pattern matches \emph{on the operations} that are invoked, as well as
+%% on the \emph{values} that the computation can return. Furthermore, the handler
+%% gets access to the \emph{continuation} of the calling function as a first-class
+%% value. Consider the handler for \code{State};
+
+A handler for a specific interface can also pattern match on the
+\code{operations} that are performed, and not just the values that can be
+returned. As an example, consider the canonical handler for the \code{State S}
+interface.
 
 \begin{lstlisting}
   runState : {<State S> X -> S -> X}
@@ -691,11 +696,27 @@ value. Consider the handler for \code{State};
   runState x            _ = x
 \end{lstlisting}
 
-\noindent The type of \code{runState} expresses that the first argument is a
-computation that can perform \code{State S} effects and will eventually return a
-value of type \code{X}, whilst the second argument is a value of type \code{S}.
-%could remove this below line...
-The \code{State S} effect is then \emph{removed} from the first argument.
+%% \noindent The type of \code{runState} expresses that the first argument is a
+%% computation that can perform \code{State S} effects and will eventually return a
+%% value of type \code{X}, whilst the second argument is a value of type \code{S}.
+
+\noindent Observe that the type of \code{runState} contains \code{<State S>},
+called an \emph{adjustment}. This expresses that the first argument can perform
+commands in the \code{State S} interface, and that \code{runState} must handle
+these commands if they occur.
+
+\subparagraph*{Computation Patterns}
+The second and third lines specify how we handle \code{get} and \code{put}
+commands. Observe that we use a new type of pattern, called a \emph{computation
+  pattern}; these are made up of a command and some arguments (which are also
+values), plus the continuation of the calling code. The types of arguments and
+the continuation are determined by the interface declaration and the type of the
+handler; for instance, in \code{<get -> k>} the type of \code{k} is \code{\{S ->
+  [State S] X\}}. The continuation can then perform more \code{State S} effects.
+This differs to some other implementations of effect handling languages
+\todo{Add references} where the handlers are \emph{deep}, meaning the
+continuation has had the
+
 
 What happens when we run \code{runState xplusplus! 0}? When a computation is
 invoked, it is performed until it results in either a \emph{value} or a
