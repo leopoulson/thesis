@@ -105,6 +105,8 @@
 
 \newcommand\aeff{{\AE}ff\xspace}
 
+\newcommand\figscale{0.85}
+
 \newcommand\nondetfrank{$\mathbb{F}_{\cal{ND}}$}
 \newcommand\countingfrank{$\mathbb{F}_{\cal{C}}$}
 
@@ -1080,7 +1082,7 @@ the language in this work, we explain some of the relevant parts of the
 language.
 
 \begin{figure}[h]  %\figrule
-\scalebox{.85}{%
+\scalebox{\figscale}{%
 \[
 \ba{@{}c@{}}
 \ba{@{}c@{\quad\quad}c@{}}
@@ -1126,32 +1128,38 @@ language.
 %\figrule
 \end{figure}
 
-Value types are either datatypes instantiated with type arguments $D~\overline{R}$, thunked
-computations $\thunk{C}$, or value type variables $X$. Computation types are
-zero or more argument types $T$ resulting in a return type $G$. A computation of
-type
+\paragraph*{Types}
+Value types are either datatypes instantiated with type arguments
+$D~\overline{R}$, thunked computations $\thunk{C}$, or value type variables $X$.
+%
+Computation types are of the form
 
 \[
-C = \effin{\adapt_1\pipe\ext_1}A_1 \to \dots \to
-      \effin{\adapt_k\pipe\ext_k}A_k \to \effout{\sigs}B
+  C = \effin{\adapt_1\pipe\ext_1}A_1 \to \dots \to \effout{\sigs} B
 \]
 
-\noindent has arugment types $\effin{\adapt_i\pipe\ext_i}A_i$ and return type
-$\effout{\sigs}B$; that is, a computation of type $C$ handles effects in
-extensions $\ext_i$ in its $i$-hth argument. It then returns a value of type $B$
-and potentially performs effects in $\sigs$.
-
-\todo{Talk about adaptors at each index?}
-
-An ability $\sigs$ \ldots. It may be closed $\nowt$ or open $\ev$.
+\noindent where a computation of type $C$ handles effects in $\ext_i$ or pattern
+matches in $A_i$ on the $i$-th argument and returns a value of type $B$. $C$ may
+perform effects in ability $\sigs$ along the way.
 %
-An extension $\ext$ is a finite list of interfaces.
+The $i$-th argument to $C$ can perform effects in $\sigs$ adapted by adaptor
+$\adapt_i$ and augmented by extension $\ext_i$.
 
-We deliberately leave out details on adaptors for the sake of brevity. We also
-skip over the typing rules, as they are standard. These can be seen in the
-appendix.
+An ability $\sigs$ is an extension $\ext$ plus a seed, which can be closed
+($\nowt$) or open $\ev$. This lets us explicitly choose whether a function can
+be effect polymorphic, as discussed earlier. An extension $\ext$ is a finite
+list of interfaces.
+
+%% We deliberately leave out details on adaptors for the sake of brevity. We also
+%% skip over the typing rules, as they are standard. These can be seen in the
+%% appendix.
+
+We omit details on adaptors as they are present in previous work. The same goes
+for the typing rules, which we do not change.
 
 \begin{figure} %\figrule
+\centering
+\scalebox{\figscale}{%
 \begin{syntax}
   %% \slab{monomorphic term variables} & x, y, z \\
   %% \slab{polymorphic term variables} & f \\
@@ -1172,7 +1180,8 @@ appendix.
                                         \gor \effin{x} \\
   \slab{value patterns}       & p      &::=& k~\many{p} \gor x        \\
 \end{syntax}
-\\[0.25cm]
+}
+%% \\[0.25cm]
 %\textit{with} term variables $x$, $y$, $z$, polymorphic term variables $f$, constructors $k$, commands $c$\\[0.25cm]
 \caption{Terms}
 \label{fig:terms}
@@ -1187,36 +1196,43 @@ ascriptions $\cu(n:A)$. Constructions are made up of uses $\uc m$, data
 constructor instances $k~\many{n}$, suspended computations $\thunk{e}$, let
 bindings $\key{let}~f : P = n~\key{in}~n'$, recursive let $\key{letrec}~\many{f
   : P = e}~\key{in}~n$ and adaptors $\effin{\adapt}~n$. We can inject a use into
-a construction with $\uc$ and vice versa ($\cu$); in real Frank code these are
-not present.
+a construction and vice versa ($\uc$, $\cu$); in real Frank code these are not
+present.
 
-Computations are produced by defining a sequence of pattern matching clauses.
-Each pattern matching clause takes a sequence $\many{r}$ of computation
-patterns. These can either be a request pattern
-$\effin{\handle{c~\many{p}\,}{z}}$, a catch-all pattern $\effin{x}$, or a
-standard value pattern $p$. Value patterns are made up of data constructor
-patterns $k~\many{p}$ or variable patterns $x$.
-
-\todo{Talk about typing for Frozen commands --- basically jus say that they
-  retain the type when frozen.}
+Computations are produced by a sequence of pattern matching clauses. Each
+pattern matching clause takes a sequence $\many{r}$ of computation patterns.
+These can either be a request pattern $\effin{\handle{c~\many{p}\,}{z}}$, a
+catch-all pattern $\effin{x}$, or a standard value pattern $p$. Value patterns
+are made up of data constructor patterns $k~\many{p}$ or variable patterns $x$.
 
 \paragraph*{Runtime Syntax}
 
 The operational semantics uses the runtime syntax of
-Figure~\ref{fig:runtime-syntax}. The uses and constructions are supplemented
-with a special term $\freeze{\EC[c~\many{R}~\many{w}]}$, of \emph{frozen
-  commands}. We discuss these further later.
-
-We distinguish use and construction values, and then further separate
-construction values into uses and non-uses. We also declare a new class of
-\emph{normal forms}, to be used in pattern binding.
+Figure~\ref{fig:runtime-syntax}.
+%
+Uses and constructions are further divided into those which are values. Values
+are either variable or datatype instantiations, or suspended computations.
+%
+We also declare a new class of \emph{normal forms}, to be used in pattern
+binding. These are either construction values or \emph{frozen commands},
+$\freeze{\EC[c~\many{R}~\many{w}]}$.
+%
+%% with a special term $\freeze{\EC[c~\many{R}~\many{w}]}$, of \emph{frozen
+%%   commands}. We discuss these further later.
+Frozen commands are used to capture a continuation's \emph{delimited
+  continuation}. As soon as a command is invoked it becomes frozen. The entire
+rest of the computation around the frozen command then also freezes (in the same
+way that water behaves around ice), until we reach a handler for the frozen
+command.
 
 Finally we have evaluation contexts, which are sequences of evaluation frames.
 The interesting case is $u~(\many{t}, [~],\many{n})$; it is this that gives us
-left-to-right evaluation of multihandler arguments.
+left-to-right call-by-value evaluation of multihandler arguments.
 
 \begin{figure}[t]
 %% \figrule
+\centering
+\scalebox{\figscale}{%
 \begin{syntax}
 \slab{uses}                    & m   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
 \slab{constructions}           & n   &::= & \dots \mid \freeze{\EC[c~\many{R}~\many{w}]} \\
@@ -1234,6 +1250,7 @@ left-to-right evaluation of multihandler arguments.
                                       \gor \effin{\adapt}~[~] \\
 \slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
 \end{syntax}
+}
 \caption{Runtime Syntax}
 \label{fig:runtime-syntax}
 %% \figrule
@@ -1243,15 +1260,13 @@ left-to-right evaluation of multihandler arguments.
 in Figure~\ref{fig:operational-semantics}.
 
 The essential rule here is \textsc{R-Handle}. This relies on a new relations
-regarding \emph{pattern binding} (Figure~\ref{fig:pattern-binding}). We discuss
-these rules in more detail later. $\bindsc{r}{T}{t}{\sigs}{\venv}$ states that
-the computation pattern $r$ of type $T$ and ability $\sigs$ matches the normal
-form $t$ yielding substitution $\venv$. The index $k$ is then the index of the
-earliest ``line'' of pattern matches that all match. The conclusion of the rule
-states that we then perform the substitutions $\many{\venv}$ that we get on the
-return value $n_k$ to get our result. This is given type $B$.
-
-\todo{Tighten up description.}
+regarding \emph{pattern binding} (Figure~\ref{fig:pattern-binding}).
+$\bindsc{r}{T}{t}{\sigs}{\venv}$ states that the computation pattern $r$ of type
+$T$ at ability $\sigs$ matches the normal form $t$ yielding substitution
+$\venv$. The index $k$ is then the index of the earliest line of pattern matches
+that all match. The conclusion of the rule states that we then perform the
+substitutions $\many{\venv}$ that we get on the return value $n_k$ to get our
+result. This is given type $B$.
 
 \textsc{R-Ascribe-Use} and \textsc{R-Ascribe-Cons} remove unneeded conversions
 from use to construction. \textsc{R-Let} and \textsc{R-LetRec} are standard.
@@ -1260,26 +1275,28 @@ from use to construction. \textsc{R-Let} and \textsc{R-LetRec} are standard.
 We have several rules regarding the freezing of commands. When handling a
 command, we need to capture its delimited continuation; that is, the largest
 enclosing evaluation context that does \emph{not} handle it.
-\textsc{R-Freeze-Comm} shows how commands, once used, become frozen;
+\textsc{R-Freeze-Comm} expresses that invoked commands instantly become frozen;
 \textsc{R-Freeze-Frame-Use} and \textsc{R-Freeze-Frame-Cons} show how the rest
-of the context becomes frozen. These two rules rely on the predicate $\EC
-\textsf{ handles } c$. This is true if the context does indeed handle the
-command $c$; i.e. it is a context of the form $u~(\many{t}, [~], \many{u'})$
+of the context becomes frozen. These two rules rely on the predicate $\EC~
+\textsf{handles}~c$. This is true if the context does indeed handle the
+command $c$; i.e.\ it is a context of the form $u~(\many{t}, [~], \many{u'})$
 where $u$ is a handler that handles $c$ at the index corresponding to the hole.
 Thus, the whole term is frozen up to the first handler, at which point is it
-handled with \textsc{R-Handle}}.
+handled with \textsc{R-Handle}.
 
 The $\textsc{R-Lift}$ rules then express that we can perform any of these
 reductions in any evaluation context.
 
-
-\todo{Frozen commands - delimited continuations}
-
-\begin{figure}[t]
+\begin{figure}
 %% \figrule
 \flushleft
+\scalebox{\figscale}{%
 $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
-    \stepstou m'} \quad \boxed{n \stepstoc n'}$
+    \stepstou m'} \quad \boxed{n \stepstoc n'}$}
+
+\centering
+\scalebox{\figscale}{%
+\\
 \begin{mathpar}
 \inferrule[R-Handle]
   {% The type system should enforce this!
@@ -1341,6 +1358,7 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
   {n \redtoc n'}
   {\EC[n] \stepstoc \EC[n']}
 \end{mathpar}
+}
 
 \caption{Operational Semantics}
 \label{fig:operational-semantics}
@@ -1351,14 +1369,19 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 
 We now discuss the pattern binding rules of Figure~\ref{fig:pattern-binding}.
 
-\begin{figure}[t]
+\begin{figure}
 %% \figrule
 \flushleft
 %\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
 %amb. $\venv$ and binds $\venv$.}
+\scalebox{\figscale}{%
 $\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
-\begin{mathpar}
+}
 
+
+\centering
+\scalebox{\figscale}{%
+\begin{mathpar}
 \inferrule[B-Value]
   {\adjact{\sigs}{\adj}{\sigs'} \\\\ \bindsv{p}{A}{w}{\venv}}
   {\bindsc{p}{\effin{\adj}A}{w}{\sigs}{\venv}}
@@ -1391,10 +1414,17 @@ $\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
 
 \end{mathpar}
 
+}
 
+\flushleft
 %~~ \textit{Value pattern $p$ for type $A$ matches $w$ and binds $\venv$.}
 %
-$\boxed{\bindsv{p}{A}{w}{\venv}}$
+\scalebox{\figscale}{%
+  $\boxed{\bindsv{p}{A}{w}{\venv}}$
+  }
+
+\centering
+\scalebox{\figscale}{%
 \begin{mathpar}
 
 \inferrule[B-Var]
@@ -1404,8 +1434,9 @@ $\boxed{\bindsv{p}{A}{w}{\venv}}$
 \inferrule[B-Data]
   {k~\many{A} \in D~\many{R} \\
    (\bindsv{p_i}{A_i}{w_i}{\venv_i})_i}
- {\bindsv{k~\many{p}}{D~\many{R}}{k~\many{w}}{\many{\venv}}}
+  {\bindsv{k~\many{p}}{D~\many{R}}{k~\many{w}}{\many{\venv}}}
 \end{mathpar}
+  }
 
 \caption{Pattern Binding}
 \label{fig:pattern-binding}
@@ -1432,7 +1463,7 @@ Consider the two programs below;
 \begin{lstlisting}
 controller : {[Stop, Go, Console] Unit}
 controller! =
-    stop!; print "stop "; sleep 200000; go!; controller!
+    stop!; print stop ; sleep 200000; go!; controller!
 
 runner : {[Console] Unit}
 runner! = print ``1 ``; print ``2 ``; print ``3 '';
