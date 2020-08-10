@@ -120,6 +120,8 @@
 \newcommand{\plusc}{{\color{blue} +_c}}
 \newcommand{\threshc}{{\color{blue} t_y}}
 
+\newcommand{\bluetext}[1]{{\color{blue}#1}}
+
 \newcommand\yield{\textsf{yield}\xspace}
 \newcommand\Yield{\textsf{Yield}\xspace}
 \newcommand\allows{\textsf{allows}\xspace}
@@ -1072,24 +1074,20 @@ similar diagram of how the depth-first handling differs in Figure \ref{fig:sched
 \chapter{Formalisation of Frank}
 \label{chap:formalisation}
 
-%% We now discuss the formalisation of the Frank language. This has been discussed
-%% in depth in previous work (\cite{convent2020doo}), so we do not go into great
-%% detail about some parts of the language. Indeed, we skip over much of it for
-%% brevity's sake. We do, however ht
-
 The formalisation of the Frank language has been discussed at length in previous
 work~(\cite{convent2020doo}). However, in order to illustrate changes made to
-the language to get pre-emptive concurrency, we explain some of the key parts of
-the language in this section.
+the language in this work, we explain some of the relevant parts of the
+language.
 
 \begin{figure}[h]  %\figrule
+\scalebox{.85}{%
 \[
 \ba{@{}c@{}}
 \ba{@{}c@{\quad\quad}c@{}}
 \begin{syn}
   \slab{data types}            & D \\
   \slab{value type variables}  & X \\
-  \slab{effect type variables} & E| \\
+  \slab{effect type variables} & E \\
   \slab{value types}           & A, B   &::= & D~\overline{R} \\
                                &        &\gor& \thunk{C} \gor X \\
   \slab{computation types}     & C      &::= & \many{T \to}~G \\
@@ -1120,8 +1118,8 @@ the language in this section.
 \end{syn} \\
 \ea \\
 \ea
-\]
-\\[0.25cm]
+\]}
+%% \\[0.25cm]
 
 \caption{Types}
 \label{fig:types}
@@ -1138,7 +1136,7 @@ C = \effin{\adapt_1\pipe\ext_1}A_1 \to \dots \to
       \effin{\adapt_k\pipe\ext_k}A_k \to \effout{\sigs}B
 \]
 
-has arugment types $\effin{\adapt_i\pipe\ext_i}A_i$ and return type
+\noindent has arugment types $\effin{\adapt_i\pipe\ext_i}A_i$ and return type
 $\effout{\sigs}B$; that is, a computation of type $C$ handles effects in
 extensions $\ext_i$ in its $i$-hth argument. It then returns a value of type $B$
 and potentially performs effects in $\sigs$.
@@ -2045,6 +2043,97 @@ Automatically inserting \yield-handling clauses when combined with automatically
 \emph{inserting} \yield~commands then gives us pre-emptive concurrency at no
 overhead to the programmer.
 
+\section{Starvation}
+
+Consider the following program;
+
+\begin{lstlisting}
+  echo : {String -> [Console, Yield] Unit}
+  echo st = print st; echo st
+
+  sched : {<Yield> Unit -> <Yield> Unit -> Unit}
+  sched unit unit = unit
+
+  tree : {[Console] Unit}
+  tree! = sched (echo "A ")
+                (sched (echo "B ") (echo "C "))
+\end{lstlisting}
+
+We would like \code{tree!} to print out \code{"A B C A B C A B C ..."}. However, when
+using the insertion and handling of \yield~commands as discussed, the result is
+\code{"A B C B C B C ..."}. The \code{echo "A "} thread is \emph{starved} of
+processor time. This happens because when \code{echo "B "} yields the command
+is immediately handled by the lower \code{sched} handler and \code{echo "C "}
+is ran (and vice versa). Ideally what we want is to break out of this cycle
+and \yield~on top of the lower scheduler.
+
+To do this we need to maintain a series of counters; one for each multihandler.
+If we consider the \code{tree} as a tree where \code{echo} functions are at
+the leaves and \code{sched} makes up the branches, we also can now yield at the
+branches as well as the leaves.
+
+We have to update the semantics with the following rules to make this possible.
+Our transitions are now of the form $m, \bluetext{\many{\counter}} \redtou m',
+\bluetext{\many{\counter}}$. This list of counters is the list of counters
+\emph{above} the current term in this tree of multihandlers. For instance,
+\code{echo "A "} will maintain the counter for \code{sched} directly above it;
+but \code{echo "B "} maintains the counter for both multihandlers above. The
+rules are shown in Figure~\ref{fig:tree-counting}.
+
+\begin{figure}
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Add-Counter]
+          { \EC[n]; \bluetext{c_n, \ldots, c_1} \redtou \EC[n']; \bluetext{c_n,
+              \ldots, c_1} \\
+            \EF \textsf{ is handler }}
+          { \EF[\EC[n]]; \bluetext{c_{n+1}, c_n, \ldots, c_1} \redtou
+            \EF[\EC[n']]; \bluetext{c_{n+1}, c_n, \ldots, c_1}}
+\\
+\inferrule[R-Handle]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+          \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_n, \ldots, c_1}
+    \redtou
+    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_n}, \ldots, \succc{c_1}} }
+\\
+\inferrule[R-Yield-Can]
+  { \EC~\allows~\Yield \\
+    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yield} \redtou \EC[\yield!; m];
+    \bluetext{c_n, \ldots, c_2, \justc{0}}}
+  \\
+
+\inferrule[R-Yield-Can't]
+  { \neg (\EC~\allows~\Yield) \\
+    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc \\
+    \EC[m]; \bluetext{c_n, \ldots, c_2, \justc{k}}~\redtou~\EC[m']; \bluetext{c_n,
+      \ldots, c_2, c_1'}
+  }
+  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yieldc} \redtou \EC[m'];
+    \bluetext{c_n, \ldots, c_2, \yieldc} }
+\\
+\end{mathpar}
+\caption{New counting, backwards ordered though}
+\label{fig:tree-counting}
+\end{figure}
+
+\textsc{R-Yield-Can} and \textsc{R-Yield-Can't} are fairly similar to the rules
+in Figure~\ref{fig:counting-rules}. The main difference is that we can only insert a
+yield if every counter above ours is not also trying to \yieldc. This is
+important as it gives priority to multihandlers higher up in our syntax tree.
+
+\textsc{R-Handle} is also fairly similar to previous versions of the rule. The
+difference again is that we don't allow a transition if any of the earlier
+counters are in the \yieldc position; they must \yield before we can progress.
+Once we do handle the operation we increase all of the counters in the stack.
+
+\todo{Add counter????}
 
 \section{Soundness}
 
