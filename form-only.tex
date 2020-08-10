@@ -86,13 +86,18 @@
 %% Start of inference rules typesetting business
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\newcommand{\counter}{c_y}
-\newcommand{\justc}[1]{c({#1})}
-\newcommand{\yieldc}{\textsf{yield}}
-\newcommand{\plusc}{+_c}
-\newcommand{\threshc}{t_y}
+\newcommand{\counter}{{\color{blue}c_y}}
+\newcommand{\justc}[1]{{\color{blue} c({#1})}}
+\newcommand{\yieldc}{{\color{blue}{\textsf{yield}}}}
+\newcommand{\plusc}{{\color{blue} +_c}}
+\newcommand{\threshc}{{\color{blue} t_y}}
+\newcommand{\succc}[1]{\bluetext{#1 \plusc 1}}
 
-\newcommand{\allows}{\textsf{allows}}
+\newcommand{\bluetext}[1]{{\color{blue} #1}}
+
+\newcommand\yield{\textsf{yield}\xspace}
+\newcommand\Yield{\textsf{Yield}\xspace}
+\newcommand\allows{\textsf{allows}\xspace}
 
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 
@@ -1403,9 +1408,121 @@ with use of Theorem~\ref{thm:sub-red}.
 \end{proof}
 
 
+\section{``Tree'' Yielding}
 
-\bibliographystyle{plain}
-\bibliography{bibliography}
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Add-Counter]
+          { \EC[n]; \bluetext{c_1, \ldots, c_n} \redtou \EC[n']; \bluetext{c_1,
+              \ldots, c_n} \\
+            \EF \textsf{ is handler }}
+          { \EF[\EC[n]]; \bluetext{c_1, \ldots, c_n, c_{n+1}} \redtou \EF[\EC[n']]; \bluetext{c_1, \ldots, c_n, c_{n+1}}}
+\\
+\inferrule[Handle-In]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+          \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, c_n}
+    \redtou
+    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots, \succc{c_n}} }
+\\
+\inferrule[Yield-Can]
+  { \EC~\allows~\Yield \\
+    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[m]; \bluetext{c_1, \ldots, c_{n-1}, \yield} \redtou \EC[\yield!; m];
+    \bluetext{c_1, \ldots, c_{n-1}, \justc{0}}}
+  \\
+
+\inferrule[Yield-Can't]
+  { \neg (\EC~\allows~\Yield) \\
+    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc \\
+    \EC[m]; \bluetext{c_1, \ldots, c_{n-1}, \justc{k}}~\redtou~\EC[m']; \bluetext{c_1,
+      \ldots, c_{n-1}, c_n'}
+  }
+  { \EC[m]; \bluetext{c_1, \ldots, c_{n-1}, \yieldc} \redtou \EC[m'];
+    \bluetext{c_1, \ldots, c_{n-1}, \yieldc} }
+\\
+\end{mathpar}
+\caption{New counting}
+\end{figure}
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Add-Counter]
+          { \EC[n]; \bluetext{c_n, \ldots, c_1} \redtou \EC[n']; \bluetext{c_n,
+              \ldots, c_1} \\
+            \EF \textsf{ is handler }}
+          { \EF[\EC[n]]; \bluetext{c_{n+1}, c_n, \ldots, c_1} \redtou
+            \EF[\EC[n']]; \bluetext{c_{n+1}, c_n, \ldots, c_1}}
+\\
+\inferrule[Handle-In]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+          \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_n, \ldots, c_1}
+    \redtou
+    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_n}, \ldots, \succc{c_1}} }
+\\
+\inferrule[Yield-Can]
+  { \EC~\allows~\Yield \\
+    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yield} \redtou \EC[\yield!; m];
+    \bluetext{c_n, \ldots, c_2, \justc{0}}}
+  \\
+
+\inferrule[Yield-Can't]
+  { \neg (\EC~\allows~\Yield) \\
+    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc \\
+    \EC[m]; \bluetext{c_n, \ldots, c_2, \justc{k}}~\redtou~\EC[m']; \bluetext{c_n,
+      \ldots, c_2, c_1'}
+  }
+  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yieldc} \redtou \EC[m'];
+    \bluetext{c_n, \ldots, c_2, \yieldc} }
+\\
+\end{mathpar}
+\caption{New counting, backwards ordered though}
+\end{figure}
+\todo{$c_{n + 1}$ needs to be fresh in Add-Counter}
+
+\todo{Also need to emphasise that it's not necessarily sequential counters.}
+
+%% \inferrule[R-Handle]
+%%   {% The type system should enforce this!
+%%    %(\handles{\adj_j}{t_j})_j \\
+%%    k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+%%    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}}
+%%    %% \forall i < k.\exists j.r_{i, j} \# t_j}
+%%    %% l \text{~is minimal}}
+%%   {\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A \to}~\effout{\sigs}B})~\many{t} \redtou \cu ((\many{\venv}(n_k) : B)}
+
+%% \begin{figure}[h]
+%% %% \figrule
+%% %% \flushleft
+%% $\boxed{m \redtou m'} $
+%% \begin{mathpar}
+%% \inferrule[R-Yield-Can]
+%%           { \EF[\EC]~\allows~\textsf{Yield} }
+%%           { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[\textsf{yield!}; m]]; \justc{0} }
+%% \\
+%% \inferrule[R-Yield-Can't]
+%%           { \neg (\EF[\EC]~\allows~\textsf{Yield}) \\
+%%             m; \justc{n} \redtou m'; c' }
+%%           { \EF[\EC[m]]; \yieldc \redtou \EF[\EC[m]]; \yieldc }
+%% \\
+
+%% \end{mathpar}
+
 
 \chapter{Use-Only Reductions}
 
@@ -1528,6 +1645,10 @@ $\boxed{m \redtou m'} \quad \quad \boxed{m \stepstou m'} $
 %% APPENDIX
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+
+\bibliographystyle{plain}
+\bibliography{bibliography}
 
 \appendix
 

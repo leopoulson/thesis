@@ -715,8 +715,7 @@ handler; for instance, in \code{<get -> k>} the type of \code{k} is \code{\{S ->
   [State S] X\}}. The continuation can then perform more \code{State S} effects.
 This differs to some other implementations of effect handling languages
 \todo{Add references} where the handlers are \emph{deep}, meaning the
-continuation has had the
-
+continuation has been re-handled by the same handler automatically.
 
 What happens when we run \code{runState xplusplus! 0}? When a computation is
 invoked, it is performed until it results in either a \emph{value} or a
