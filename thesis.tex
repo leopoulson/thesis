@@ -479,22 +479,21 @@ Effects, such as state and nondeterminism, are pervasive when programming; for a
 program to do anything beyond compute a pure mathematical function, it must
 interact with the outside world, be this to read from a file, make some random
 choice, or run concurrently with another program. Algebraic effects and their
-handlers are a novel way to encapsulate, reason about and specify computational
-effects in programming languages. For instance, a program that reads from and
-writes to some local state can utilise the \textsf{State} effect, which supports
-two \emph{operations}; \textsf{get} and \textsf{put}. A handler for the
-\textsf{State} effect gives a meaning to these abstract operations.
+handlers (\cite{plotkin2013handling}) are a novel way to encapsulate, reason
+about and specify computational effects in programming languages. For instance,
+a program that reads from and writes to some local state can utilise the
+\textsf{State} effect, which supports two \emph{operations}; \textsf{get} and
+\textsf{put}. A handler for the \textsf{State} effect gives a meaning to these
+abstract operations.
 
 Programming with effects is increasingly popular, references, ...
 
-Traditional effect handling is \emph{synchronous}; when an effectful operation
-is invoked, the rest of the computation pauses whilst the effect handler
-performs the requisite computation and then resumes the original caller.
-\todo{Do we need to speak about how the continuation of the caller gets 'offered
-  up'?}
+Traditional effect handling is \emph{synchronous}; when an operation is invoked,
+the rest of the computation pauses whilst the effect handler performs the
+requisite computation and then resumes the original caller.
 %
 For many effects, this blocking behaviour is not a problem; the handler usually
-returns quickly, and the user does not notice anything. Of course, not every
+returns quickly, and the user does not notice anything. However, not every
 possible computational effect behaves like this. Consider an effect involving a
 query to a remote database. We might not want to block the rest of the
 computation whilst we perform this, as the query might take a long time; this
@@ -509,9 +508,8 @@ handlers at its core. We follow the design
 of~\aeff~(\cite{ahman2020asynchronous}), a small programming language designed
 around asynchronous effects but supporting little else. We show how, with a
 small change to the semantics of Frank, we can recreate the asynchronous effect
-handling behaviour of~\aeff.
-
-\todo{Talk about extra examples...}
+handling behaviour of~\aeff~whilst enjoying the benefits of traditional effect
+handlers.
 
 %% The changes made to Frank are straightforward to recreate, and whilst the Frank
 %% library for programming with asynchronous effects enjoys some specific
@@ -1031,9 +1029,10 @@ forker! = print "Starting! ";
 \end{lstlisting}
 
 We can now choose a strategy for handling \code{fork} operations; we can either
-lazily run them, by finishing executing the current thread, or eagerly run them,
-suspending the currently executing thread and running the forked process. The
-handler for the former, breadth-first style of scheduling, is;
+lazily run them, by continuing our current thread and then running them, or
+eagerly run them, suspending the currently executing thread and running the
+forked process straight away. The handler for the former, breadth-first style of
+scheduling, is;
 
 \begin{lstlisting}
 scheduleBF : {<Co> Unit -> [Queue Proc] Unit}
@@ -1445,12 +1444,19 @@ $\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
 \section{Motivation}
 \label{sec:interrupt-motivation}
 
-One important part of our asynchronous effect handling system is the ability to
-interrupt arbitrary computations. If two threads are running concurrently and
-are communicating with one another, we have to stop running one to let messages
-come in from the other. This is achievable with explicitly yielding, as in
-Section~\ref{sec:concurrency}, however we would prefer for this behaviour to be
-done automatically.
+Our scheduler in Section~\ref{sec:concurrency} relies on threads \yield{}ing.
+This is fine for small examples, but when working with longer programs this is
+inconvenient; the programmer must insert \yield{}s with a vaguely constant
+frequency, so as to avoid process starvation. It would be better to just use
+some automatic way of \yield{}ing.
+
+
+%% One important part of our asynchronous effect handling system is the ability to
+%% interrupt arbitrary computations. If two threads are running concurrently and
+%% are communicating with one another, we have to stop running one to let messages
+%% come in from the other. This is achievable with explicitly yielding, as in
+%% Section~\ref{sec:concurrency}, however we would prefer for this behaviour to be
+%% done automatically.
 
 Consider the two programs below;
 
@@ -1476,8 +1482,8 @@ of this multihandler should be then \code{1 stop 2 stop 3 stop}.
 %% pre-emptive interruptions for this, as otherwise there would be no way for the
 %% \code{stop} and \code{go} messages to be registered.
 
-\section{Interruption with Yields}
-\label{sec:yield-interruption}
+%% \section{Interruption with Yields}
+%% \label{sec:yield-interruption}
 
 %% One way we can get this behaviour is using the \code{Yield} interface. This
 %% offers a single operation, \code{yield : Unit}. With this, we can write a
@@ -2279,8 +2285,8 @@ by installing an \emph{interrupt handler}, also known as a \emph{promise}.
 %% effect handler.
 Interrupts and interrupt handlers can be seen as a less expressive version of
 effects and effect handlers; an interrupt handler describes how to behave on
-receipt of an interrupt in the same way to an effect handler, but it does not
-get access to the continuation of the calling code.
+receipt of an interrupt, but it does not get access to the continuation of the
+caller.
 
 Interrupts and interrupt handlers have one particularly compelling feature; when
 we invoke an interrupt (in the case of synchronous effects, this is just
@@ -2334,7 +2340,7 @@ data Pid X = pid (Ref (PromiseStatus X))
 data PromiseStatus X = waiting | done X | resume {X -> Unit}
 \end{lstlisting}
 
-\noindent The \code{promise R} command is a polymorphic command, which takes a
+\noindent The \code{promise R} command is a polymorphic command which takes a
 function of type \code{Sig -> Maybe \{[E|] R\}}. This function is an interrupt
 handler; it dictates what to do on receipt of an interrupt, which is a thing of
 type \code{Sig}. The return type of the interrupt handler is \code{Maybe \{[E|]
@@ -2343,7 +2349,7 @@ which will mean the promise goes unfulfilled and waits for another message. The
 programmer would want to do this on receipt of other types of message, or if a
 certain condition regarding the interrupt is not fulfilled\footnote{Interrupt
   handlers which put conditions on the incoming interrupts are called
-  \emph{guarded} interrupt handlers --- we come back to these later.}. An
+  \emph{guarded} interrupt handlers.}. An
 interrupt handler corresponding to an asynchronous division could be;
 
 \begin{lstlisting}
@@ -2362,19 +2368,20 @@ based on an interrupt, the type of \code{Prom R} restricts us so that we cannot
 perform any effects whilst deciding; we may only perform effects in the body of
 the promise.
 
-The \code{promise R} operation returns a \code{Pid R}. This contains information
-about the status of the promise; it is either empty, to signify the promise is
-unfulfilled, or it holds the result of the promise, or it holds a resumption
-that is automatically invoked when the promise is finished. Importantly, a
-function installing a promise should not have access to the body of this; it
-would ideally be some abstract type. The calling function should only interact
-with the \code{Pid} through the \code{await} command.
+Once handled, \code{promise R} operation returns a \code{Pid R}. This contains
+information about the status of the promise; it is either empty, to signify the
+promise is unfulfilled, or it holds the result of the promise, or it holds a
+resumption that is automatically invoked when the promise is finished.
+Importantly, a function installing a promise should not have access to the body
+of this; it would ideally be some abstract type. The calling function should
+only interact with the \code{Pid} through the \code{await} command.
 
 \code{signal} is a more simple operation. The \code{Sig} data type is the type
 of signals that the thread can invoke. These can hold extra data, also called a
 \emph{payload}. For instance, if we had a program running remote function calls,
-we might have \code{Sig = call ArgsType | result ResultType}. The handler
-for \code{Promise} will then send the signals to each other thread, possibly
+we might have \code{Sig = call ArgsType | result ResultType}; the payloads are
+respectively of types \code{ArgsType} and \code{ResultType}. The handler for
+\code{Promise} will then send the signals to each other thread, possibly
 executing the interrupt handler if needs be.
 
 \code{await} takes a \code{Pid R} and returns a value of type \code{R}. This
