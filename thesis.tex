@@ -902,15 +902,17 @@ an argument. A \code{Ref X} cell is then returned as answer.
 %% {This is poorly written --- fix}.
 
 Effect handlers have proved to be useful abstractions for concurrent programming
-\todo{Add references}.
-
+(\cite{dolan2015effective, dolan2017concurrent, hillerstrom2016compilation}).
 This is partly because the invocation of an operation not only offers up the
 operation's payload, but also the \emph{continuation} of the calling
-computation. The handler for this operation is then free to do what it pleases
-with the continuation. For many effects, such as \code{getState}, nothing
-interesting happens to the continuation; in the case of \code{getState}, it is
-resumed with the value in state. But these continuations are first-class; they
-can resumed, but also stored elsewhere or even thrown away.
+computation. In Frank, these continuations are first-class. The handler for this
+operation is then free to do what it pleases with the continuation. For many
+effects, such as \code{getState}, nothing interesting happens to the
+continuation and it is just resumed immediately. But these continuations are
+first-class; they can resumed, but also stored elsewhere or even thrown away.
+
+We illustrate this with some examples of concurrency in this section.
+
 %
 %As such, by handling
 %% \code{Yield} operations, we easily pause and switch between several threads.
@@ -918,7 +920,7 @@ can resumed, but also stored elsewhere or even thrown away.
 \subsection{Simple Scheduling}
 \label{subsec:simple-scheduling}
 
-We introduce some simple program threads and some scheduling multihandlers, to
+We introduce some simple programs and some scheduling multihandlers, to
 demonstrate how subtly different handlers generate different scheduling
 strategies.
 
@@ -938,48 +940,75 @@ unit. It is the way we \emph{handle} yield that is more interesting. These two
 programs will print some information out and yield inbetween each print
 operation.
 
-\begin{lstlisting}
--- Runs all of the LHS first, then the RHS.
-scheduleA : {<Yield> Unit -> <Yield> Unit -> Unit}
-scheduleA <yield -> m> <n> = scheduleA (m unit) n!
-scheduleA <m> <yield -> n> = scheduleA m! (n unit)
-scheduleA _ _ = unit
-
--- Lets two yields synchronise, then handles both
-scheduleB : {<Yield> Unit -> <Yield> Unit -> Unit}
-scheduleB <yield -> m> <yield -> n> = scheduleB (m unit) (n unit)
-scheduleB <yield -> m> <n> = scheduleB (m unit) n!
-scheduleB <m> <yield -> n> = scheduleB m! (n unit)
-scheduleB _ _ = unit
+\begin{lstlisting}[numbers=left]
+schedule : {<Yield> Unit -> <Yield> Unit -> Unit}
+schedule <yield -> m> <yield -> n> = schedule (m unit) (n unit)
+schedule <yield -> m> <n> = schedule (m unit) n!
+schedule <m> <yield -> n> = schedule m! (n unit)
+schedule _ _ = unit
 \end{lstlisting}
 
-\todo{Can maybe delete the 2nd and 3rd matches of scheduleB to make the point
-  more clear?}
+When we run \code{schedule words! numbers!} we read \code{one 1 two 2 three 3
+  unit} from the console. What happened? First \code{words} is evaluated until
+it results in a \code{yield} command. Recall that Frank is a left-to-right
+call-by-value language; at this point, we start evaluating the second argument,
+\code{numbers}. This again runs until a \code{yield} is performed, where we give
+control again to the scheduler. Now that both arguments are commands or values
+we can proceed with pattern matching; the first case matches and we resume both
+threads, handling again. This process repeats until one thread evaluates to
+\code{unit}. In this way, we can imagine multihandler arguments as running in
+parallel and then \emph{synchronising} when pattern matching is performed.
 
-We see two multihandlers above. Each take two \code{yield}ing threads and
-schedule them, letting one run at a time. \code{scheduleA} runs the first thread
-to completion, and only then runs the second one; the first time that the second
-thread \code{yield}s it is \emph{blocked}, and can no longer execute. As such,
-the output of \code{scheduleA words! numbers!} is \code{one 1 two three 2 3
-  unit}.
+If we omit the first line of pattern matching (line 2) we get quite a different
+result; the console output would be \code{one 1 two three 2 3}. This is because
+both threads are evaluated until they are \code{yield} invocations, printing out
+\code{one 1}; but then only the first thread is resumed. We then evaluate
+\code{words} until it becomes a \code{unit} value. At this point the patterns on
+line 4 match, as the catchall pattern \code{<m>} will match commands or values.
+We then evaluate \code{numbers} until this is also \code{unit}.
 
-\code{scheduleB} is fairer and more profound. We run \code{scheduleB words!
-  number!} and receive \code{one 1 two 2 three 3 unit}; \code{scheduleB} is fair
-and will ``match'' the yields together. We step through slowly. First
-\code{words!} will print \code{one}, then it will \code{yield}. At this point
---- recalling that multihandlers pattern match left-to-right --- the second
-thread, \code{numbers!}, is allowed to execute. In the meantime, \code{words!}
-is stuck as \code{<yield -> m>}; it cannot evaluate any further, it is
-\emph{blocked}. Whilst \code{words} is blocked \code{numbers!} prints \code{1}
-and then \code{yield}s. Great; now the first case matches. Both threads are
-resumed and the process repeats itself.
+%% \begin{lstlisting}
+%% -- Runs all of the LHS first, then the RHS.
+%% scheduleA : {<Yield> Unit -> <Yield> Unit -> Unit}
+%% scheduleA <yield -> m> <n> = scheduleA (m unit) n!
+%% scheduleA <m> <yield -> n> = scheduleA m! (n unit)
+%% scheduleA _ _ = unit
 
-\todo{ The second paragraph here is a more compelling explanation; maybe we can
-  just get rid of all of the scheduleA business and /just/ have the scheduleB
-  stuff? scheduleA is quite obvious i think whilst B is more subtle and compelling. }
+%% -- Lets two yields synchronise, then handles both
+%% scheduleB : {<Yield> Unit -> <Yield> Unit -> Unit}
+%% scheduleB <yield -> m> <yield -> n> = scheduleB (m unit) (n unit)
+%% scheduleB <yield -> m> <n> = scheduleB (m unit) n!
+%% scheduleB <m> <yield -> n> = scheduleB m! (n unit)
+%% scheduleB _ _ = unit
+%% \end{lstlisting}
 
-\todo{ It's not true that it matches L-R as much as runs all computations L - R
-  until they are all a command / value - fix this }
+%% \todo{Can maybe delete the 2nd and 3rd matches of scheduleB to make the point
+%%   more clear?}
+
+%% We see two multihandlers above. Each take two \code{yield}ing threads and
+%% schedule them, letting one run at a time. \code{scheduleA} runs the first thread
+%% to completion, and only then runs the second one; the first time that the second
+%% thread \code{yield}s it is \emph{blocked}, and can no longer execute. As such,
+%% the output of \code{scheduleA words! numbers!} is \code{one 1 two three 2 3
+%%   unit}.
+
+%% \code{scheduleB} is fairer and more profound. We run \code{scheduleB words!
+%%   number!} and receive \code{one 1 two 2 three 3 unit}; \code{scheduleB} is fair
+%% and will ``match'' the yields together. We step through slowly. First
+%% \code{words!} will print \code{one}, then it will \code{yield}. At this point
+%% --- recalling that multihandlers pattern match left-to-right --- the second
+%% thread, \code{numbers!}, is allowed to execute. In the meantime, \code{words!}
+%% is stuck as \code{<yield -> m>}; it cannot evaluate any further, it is
+%% \emph{blocked}. Whilst \code{words} is blocked \code{numbers!} prints \code{1}
+%% and then \code{yield}s. Great; now the first case matches. Both threads are
+%% resumed and the process repeats itself.
+
+%% \todo{ The second paragraph here is a more compelling explanation; maybe we can
+%%   just get rid of all of the scheduleA business and /just/ have the scheduleB
+%%   stuff? scheduleA is quite obvious i think whilst B is more subtle and compelling. }
+
+%% \todo{ It's not true that it matches L-R as much as runs all computations L - R
+%%   until they are all a command / value - fix this }
 
 \subsection{Forking New Processes}
 
@@ -990,7 +1019,6 @@ operation \code{fork};
 \begin{lstlisting}
   interface Co = fork : {[Co] Unit} -> Unit
                | yield : Unit
-               | exit : Unit
 \end{lstlisting}
 
 The type of \code{fork} expresses that \code{fork} takes a suspended computation
@@ -1008,31 +1036,29 @@ forker! = print "Starting! ";
 We can now choose a strategy for handling \code{fork} operations; we can either
 lazily run them, by finishing executing the current thread, or eagerly run them,
 suspending the currently executing thread and running the forked process. The
-handler for the former, breadth-first style of scheduling, is
+handler for the former, breadth-first style of scheduling, is;
 
 \begin{lstlisting}
 scheduleBF : {<Co> Unit -> [Queue Proc] Unit}
-scheduleBF <fork p -> k> =
-    enqueue (proc {scheduleBF (<Queue> p!)});
-    scheduleBF (k unit)
-scheduleBF <yield -> k> =
-    enqueue (proc {scheduleBF (k unit)});
-    runNext!
-scheduleBF <exit -> _> =
-    runNext!
-scheduleBF unit =
-    runNext!
+scheduleBF <fork p -> k> = enqueue {scheduleBF (<Queue> p!)};
+                           scheduleBF (k unit)
+scheduleBF <yield -> k>  = enqueue {scheduleBF (k unit)};
+                           runNext!
+scheduleBF unit          = runNext!
 \end{lstlisting}
 
-Notice the use of the \code{Queue} effect; we have to handle the computation
-\code{scheduleBF forker!} with a handler for \code{Queue} effects afterwards.
+\noindent where the operations \code{enqueue} and \code{runNext} are offered by
+the \code{Queue} effect. We have to handle the computation \code{scheduleBF
+  forker!} with a handler for \code{Queue} effects afterwards. We can abstract
+over different queue handlers for even more possible program combinations.
 Moreover, notice how concisely we can express the scheduler; this is due to the
 handler having access to te continuation of the caller, and treating it as a
 first-class object that can be stored elsewhere. We can see a diagram of how
-\code{scheduleBF} treats continuations in Figure \ref{fig:scheduleBF}, and a
-similar diagram of how the depth-first handling differs in Figure \ref{fig:scheduleDF}.
+\code{scheduleBF} treats continuations in Figure~\ref{fig:scheduleBF}, and a
+similar diagram of how the depth-first handling differs in
+Figure~\ref{fig:scheduleDF}.
 
-\begin{figure}[t]
+\begin{figure}
   \centering
   \begin{subfigure}
     \includegraphics[width=0.8\textwidth]{imgs/scheduleBF.png}
