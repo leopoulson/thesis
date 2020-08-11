@@ -721,18 +721,18 @@ This differs to some other implementations of effect handling languages
 \todo{Add references} where the handlers are \emph{deep}, meaning the
 continuation has been re-handled by the same handler automatically.
 
-What happens when we run \code{runState xplusplus! 0}? When a computation is
-invoked, it is performed until it results in either a \emph{value} or a
-\emph{command}. Thus, \code{runState} will be paused until \code{xplusplus!}
-reduces; \code{runState} is resumed when \code{xplusplus} is in one of these two
-forms.
+%% What happens when we run \code{runState xplusplus! 0}? When a computation is
+%% invoked, it is performed until it results in either a \emph{value} or a
+%% \emph{command}. Thus, \code{runState} will be paused until \code{xplusplus!}
+%% reduces; \code{runState} is resumed when \code{xplusplus} is in one of these two
+%% forms.
 
-\code{xplusplus} instantly invokes \code{get!}. At this point, control is given
-to the handler \code{runState}; both in the sense that \code{runState} is now
-being executed by the interpreter, and that \code{runState} has control over the
-\emph{continuation} of \code{xplusplus}, which is a function of type \code{Int
-  -> [State Int] Unit}. We see that \code{runState} chooses to resume this
-continuation with the value of the state at that time.
+%% \code{xplusplus} instantly invokes \code{get!}. At this point, control is given
+%% to the handler \code{runState}; both in the sense that \code{runState} is now
+%% being executed by the interpreter, and that \code{runState} has control over the
+%% \emph{continuation} of \code{xplusplus}, which is a function of type \code{Int
+%%   -> [State Int] Unit}. We see that \code{runState} chooses to resume this
+%% continuation with the value of the state at that time.
 
 \paragraph*{Effect Forwarding}
 
@@ -848,11 +848,10 @@ Recall that in Frank pure functions are just the special case of handlers that
 handle no effects. Naturally, this notion extends to the $n$-ary case; we can
 handle multiple effects from different sources are once. Handlers which handle
 multiple effects simultaneously are unsurprisingly called \emph{multihandlers}.
-This lets us write functions such as \code{pipe} (example due to \cite{convent2020doo});
+This lets us write functions such as \code{pipe} (example due to~\cite{convent2020doo});
 
 \begin{lstlisting}[numbers=left]
 interface Send X = send : X -> Unit
-
 interface Receive X = receive : X
  
 pipe : {<Send X>Unit -> <Receive X>Y -> [Abort]Y}
@@ -872,11 +871,9 @@ effect that is handled by that argument, or a value, binding this to \code{m}.
 In line 7, the catchall pattern matches either a \code{send} command or a value;
 in this case, the receiver has produced a value, so we can return that. In line
 8 \code{<_>} matches either a value or a \code{receive}; but it must be a
-\code{receive} command, as the value case would have been caught above. Hence we
-have a broken pipe, so the \code{abort} command is invoked. This can then be
-caught by another handler, which can implement a recovery strategy.
-
-\todo{Is it worth changing the example to match request on the left earlier?}
+\code{receive} command, as the value case would have been caught above. The
+\code{abort} command is then invoked, as this is erroneous. A recovery strategy
+can be implemented by a handler for \code{Abort}.
 
 \paragraph*{Polymorphic Commands}
 
@@ -886,9 +883,9 @@ by e|.g.~the data stored in the state, Frank supports polymorphic
 example is ML-style references, realised through the \code{RefState} interface;
 
 \begin{lstlisting}
-  interface RefState = new X   : X -> Ref X
-                     | read X  : Ref X -> X
-                     | write X : Ref X -> X -> Unit
+interface RefState = new X   : X -> Ref X
+                   | read X  : Ref X -> X
+                   | write X : Ref X -> X -> Unit
 \end{lstlisting}
 
 \noindent For instance, \code{new X} can be instantiated by supplying a value as
