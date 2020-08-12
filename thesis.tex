@@ -448,20 +448,23 @@
 \begin{document}
 \begin{preliminary}
 
-\title{Asynchronous Effect Handling 2}
+\title{Asynchronous Effect Handling}
 
 \author{Leo Poulson}
 
 \abstract{
   Features for asynchronous programming are commonplace in the programming
   languages of today, allowing programmers to issue tasks to run on other
-  threads and wait for the results to come back later. This is particularly
-  useful for programs like web programs, etc...
+  threads and wait for the results to come back later. These features are often
+  built into the language, and are opaque to the user.
 
-  In this thesis we show how asynchronous programming can be very easily
-  accomodated in a language with existing support for effect handlers. We show
-  how, with a small change to the language implementation, truly asynchronous
-  programming with pre-emptive concurrency is achieved.
+  In this thesis we show how a library for asynchronous programming can be very
+  easily implemented in a language with existing support for effect handlers. We
+  show how, with a small change to the language implementation, truly
+  asynchronous programming with pre-emptive concurrency is achieved.
+
+  Our system is expressive enough to define common asynchronous programming
+  constructs, such as async-await and futures, within the language itself.
 }
 
 \maketitle
@@ -2974,7 +2977,7 @@ With the \textsf{Cancel} effect, we can also define the useful \code{interleave}
 combinator, in the spirit of Koka's interleave
 operator~\cite{leijen2017structured}.
 
-\todo{Think of a better way to make reference to Daan's work}
+%% \todo{Think of a better way to make reference to Daan's work}
 
 \begin{lstlisting}
 resultWaiter : {String -> Int -> Int -> Int
@@ -3016,6 +3019,7 @@ We can also run two identical requests to different services and just take the
 result of the one that returns first. The \code{interleave} operator can be
 composed with itself to yield the $n$-ary operator \code{interleave} operator.
 
+Observe the similarity of \code{interleave} and \code{async}.
 
 
 \chapter{Conclusion}
