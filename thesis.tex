@@ -525,7 +525,45 @@ already proven to make complicated control flow easy to implement
 
 \section{Related Work}
 
-TFP, aeff, etc
+Asynchronous programming with effect handlers is a fairly nascent field.
+%
+Koka (\cite{leijen2014koka}) is a programming language with built-in effect
+handlers and a Javascript backend. \citeauthor{leijen2017structured} later shows
+us how Koka can naturally support asynchronous programming
+(\cite{leijen2017structured}). The asynchronous behaviour relies on offloading
+asynchronous tasks with a \textsf{setTimeout} function supplied by the NodeJS
+backend.
+
+Multicore OCaml (\textbf{ref}) also supports asynchronous programming through
+effect handling. They handle effects and signals, which can be received
+asynchronously, and show how to efficiently and safely write concurrenct systems
+programs. However, in a similar way to Koka, the asynchrony relies on the
+operating system supplying operations, such as \textsf{setSignal} and
+\textsf{timer} signals.
+
+A problem shared by both Koka and Multicore OCaml is they have no support for
+\emph{user-defined} asychronous effects; the asynchronous signals that can be
+received are predefined. This problem is solved by
+\aeff~(\cite{ahman2020asynchronous}), a small language built around asynchronous
+effect handling. \citeauthor{ahman2020asynchronous} approach the problem of
+asynchrony from a different perspective, by decoupling the invocation of an
+effect from its resumption with the handled value. When an effect is invoked the
+rest of the computation is not blocked whilst the handler is performed. Programs
+may then install interrupt handlers that dictate how to act on receipt of a
+particular interrupt. To recover synchronous behaviour, these interrupt handlers
+can be \textsf{await}ed; this will block the rest of the code until the
+interrupt is received.
+
+\todo{Section on the expressivity?}
+
+We design our system around \aeff, embedding its behaviour into Frank. We show
+that we can easily recover the behaviour of \aeff~when equipped with effect
+handlers, and show that asynchronous effects can still be used in conjunction
+with traditional, synchronous effects.
+
+%
+%The most prominent work is \aeff~(\cite{ahman2020asynchronous}),
+
 \section{Contributions}
 
 \paragraph*{Asynchronous Effects Library} We present a library for programming
@@ -1446,9 +1484,9 @@ $\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
 
 Our scheduler in Section~\ref{sec:concurrency} relies on threads \yield{}ing.
 This is fine for small examples, but when working with longer programs this is
-inconvenient; the programmer must insert \yield{}s with a vaguely constant
-frequency, so as to avoid process starvation. It would be better to just use
-some automatic way of \yield{}ing.
+inconvenient; the programmer must insert \yield{}s with a consistent frequency,
+so as to avoid process starvation. It would be better to just use some automatic
+way of \yield{}ing.
 
 
 %% One important part of our asynchronous effect handling system is the ability to
