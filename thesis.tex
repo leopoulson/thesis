@@ -584,8 +584,8 @@ asynchronous effects, and show how they have benefits to other models.
 \section{Structure}
 
 In Chapter~\ref{chap:programming-in-frank} we give an introduction to
-programming with effects in Frank. We skip over some unneeded parts, such as
-adaptors, in the interests of time.
+programming with effects in Frank. We skip over some unneeded (and previously
+well-covered) parts of the language, such as adaptors, in the interests of time.
 
 In Chapter~\ref{chap:formalisation} we give the formalisation of Frank. Again,
 we skip over extraneous details which can be seen in past work
@@ -595,8 +595,6 @@ the changes to the semantics for the following chapter.
 In Chapter~\ref{chap:preemptive-concurrency} we show how by making a small
 change to the semantics of Frank we yield pre-emptible threads; that is, we can
 interrupt a function in the same 'co-operative' style but without co-operation
-
-\todo{Fix above}
 
 In Chapter~\ref{chap:implementation} we describe the implementation of our
 asynchronous effect handling library in Frank. In Chapter~\ref{chap:examples} we
@@ -2337,15 +2335,8 @@ computation until the interrupt handler has been fulfilled.
 Unlike \aeff, our system does not track the uses of asychronous effects. It
 does, however, track the traditional effects that are permitted in promises.
 
-%% Our system is untyped in that there is no tracking of which asynchronous effects
-%% are issued however it is typed in that the traditional Frank effects promises
-%% can perform are tracked.
 
-%% \aeff~has an effect tracking system for asynchronous effects; our system does
-%% not. Ours does however track the effects that can be performed by interrupt
-%% handlers.
-
-\section{In Frank}
+\paragraph*{}
 
 \aeff's interrupt handlers are manifested in Frank through the \code{Promise}
 interface.
@@ -3029,6 +3020,33 @@ composed with itself to yield the $n$-ary operator \code{interleave} operator.
 
 \chapter{Conclusion}
 \label{chap:conclusion}
+
+We conclude with a discussion of the achievements, some limitations, and
+possible future work.
+
+Combining the pre-emptive concurrency of
+Section~\ref{sec:preemptive-concurrency} with the promise library of
+Section~\ref{sec:implementation} yields a direct and comfortable way to write
+asynchronous programs. It is our hope that these results will be reproducible in
+other effect-handling languages.
+%
+Moreover, we have shown how effect handlers as a programming tool can be used to
+easily express complicated control flow.
+
+\todo{Add more to end of paragraph}
+
+\paragraph*{Limitations and Future Work}
+
+The implementation of asynchronous effects as discussed does not track
+asynchronous effects, and is untyped. \citeauthor{ahman2020asynchronous} have
+shown that this is possible; it remains as future work to add types to our
+implementation.
+
+Our system uses the fairly simple communication protocol where every message
+gets sent to every thread. Naturally, two threads might want to communicate
+secretly, without other threads eavesdropping. Finer control of this is
+desirable for larger applications.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% BIBLIOGRAPHY
