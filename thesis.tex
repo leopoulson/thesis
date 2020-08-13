@@ -527,6 +527,27 @@ another language equipped with first-class effect handlers. Effect handlers have
 already proven to make complicated control flow easy to implement
 (\textbf{refs}), and our work further cements this viewpoint.
 
+Our contributions are as follows;
+
+\begin{itemize}
+  %% \subparagraph*{Asynchronous Effects Library}
+\item We present a library for programming with asynchronous effects, built in
+  Frank. We show how a complex system can be expressed concisely and elegantly
+  when programming in a language with effect handlers.
+%% \todo{Rewrite the end of this; slightly
+  %% messy}.
+
+%% \subparagraph*{Pre-emptive Concurrency}
+\item We show how, by making a small change to the operational semantics of
+  Frank, we achieve \emph{pre-emptive concurrency}; that is, the suspension of
+  running threads \emph{without} co-operation. It is our hope that this change
+  is simple enough to be transferrable to other languages.
+
+%% \subparagraph*{Examples}
+\item We also deliver a set of examples of the uses of asynchronous effects, and
+  show how they have benefits to other models.
+\end{itemize}
+
 \section{Related Work}
 
 Asynchronous programming with effect handlers is a fairly nascent field.
@@ -568,22 +589,22 @@ with traditional, synchronous effects.
 %
 %The most prominent work is \aeff~(\cite{ahman2020asynchronous}),
 
-\paragraph*{Contributions}
+%% \paragraph*{Contributions}
 
-\subparagraph*{Asynchronous Effects Library} We present a library for programming
-with asynchronous effects in the style of \aeff, built in Frank. We show how a
-complex system can be expressed concisely and elegantly when programming in a
-language with effect handlers, further cementing the case for effects as a
-foundation for concurrent programming. \todo{Rewrite the end of this; slightly
-  messy}.
+%% \subparagraph*{Asynchronous Effects Library} We present a library for programming
+%% with asynchronous effects in the style of \aeff, built in Frank. We show how a
+%% complex system can be expressed concisely and elegantly when programming in a
+%% language with effect handlers, further cementing the case for effects as a
+%% foundation for concurrent programming. \todo{Rewrite the end of this; slightly
+%%   messy}.
 
-\subparagraph*{Pre-emptive Concurrency} We show how, by making a small change to
-the operational semantics of Frank, we achieve pre-emptive concurrency; that is,
-the suspension of running threads \emph{without} co-operation. It is our hope
-that this change is simple enough to be transferrable to other languages.
+%% \subparagraph*{Pre-emptive Concurrency} We show how, by making a small change to
+%% the operational semantics of Frank, we achieve pre-emptive concurrency; that is,
+%% the suspension of running threads \emph{without} co-operation. It is our hope
+%% that this change is simple enough to be transferrable to other languages.
 
-\subparagraph*{Examples} We also deliver a set of examples of the uses of
-asynchronous effects, and show how they have benefits to other models.
+%% \subparagraph*{Examples} We also deliver a set of examples of the uses of
+%% asynchronous effects, and show how they have benefits to other models.
 
 \section{Structure}
 
@@ -1115,17 +1136,17 @@ first-class object that can be stored elsewhere. We can see a diagram of how
 similar diagram of how the depth-first handling differs in
 Figure~\ref{fig:scheduleDF}.
 
-\begin{figure}
-  \centering
-  \begin{subfigure}
-    \includegraphics[width=0.8\textwidth]{imgs/scheduleBF.png}
-    \caption{Breadth-First scheduling}\label{fig:scheduleBF}
-  \end{subfigure}
-  \begin{subfigure}
-    \includegraphics[width=0.8\textwidth]{imgs/scheduleDF.png}
-    \caption{Depth-First scheduling}\label{fig:scheduleDF}
-  \end{subfigure}
-\end{figure}
+%% \begin{figure}
+%%   \centering
+%%   \begin{subfigure}
+%%     \includegraphics[width=0.8\textwidth]{imgs/scheduleBF.png}
+%%     \caption{Breadth-First scheduling}\label{fig:scheduleBF}
+%%   \end{subfigure}
+%%   \begin{subfigure}
+%%     \includegraphics[width=0.8\textwidth]{imgs/scheduleDF.png}
+%%     \caption{Depth-First scheduling}\label{fig:scheduleDF}
+%%   \end{subfigure}
+%% \end{figure}
 
 \chapter{Formalisation of Frank}
 \label{chap:formalisation}
@@ -1653,8 +1674,10 @@ although the \code{Console} interface is present in the ability of
 %% \centering
 %\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
 %amb. $\venv$ and binds $\venv$.}
+\scalebox{\figscale}{%
 \begin{mathpar}
 %% \\
+
 \inferrule[B-CatchAll-Request-Loose]
   {
   \adjact{\sigs}{\adj}{\sigs'} \\
@@ -1667,6 +1690,7 @@ although the \code{Console} interface is present in the ability of
   {\sigs}
   {[\cu (\thunk{\freeze{\EC[c~\many{R}~\many{w}]}}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
 \end{mathpar}
+}
 \caption{Updated \textsc{B-CatchAll-Request}}
 \label{fig:loose-catchall-request}
 %% \figrule
@@ -1683,7 +1707,8 @@ time;
 runner : {[Console] Unit}
 runner! = print "1 "; print "2 "; print "3 "
 
-suspend : {Unit -> <Stop, Go> Unit -> Maybe {[Console] Unit} -> [Console] Unit}
+suspend : {Unit -> <Stop, Go> Unit
+    -> Maybe {[Console] Unit} -> [Console] Unit}
 suspend <r> <stop -> c> _ =
     suspend unit (c unit) (just r)
 suspend <_>          <go -> c>   (just res) =
@@ -1716,6 +1741,8 @@ the runtime syntax; this allows for the suspension of arbitrary \emph{uses}.
 
 \begin{figure}[t]
 %% \figrule
+\centering
+\scalebox{\figscale}{%
 \begin{syntax}
 \slab{uses}                    & m   &::= & {\dots} \gor
 \freeze{\EC[c~\many{R}~\many{w}]} \gor \highlight{\freeze{m}} \\
@@ -1735,6 +1762,8 @@ the runtime syntax; this allows for the suspension of arbitrary \emph{uses}.
                                       \gor \effin{\adapt}~[~] \\
 \slab{evaluation contexts}     & \EC &::= & [~] \gor \EF[\EC] \\
 \end{syntax}
+}
+
 \caption{Runtime Syntax, Updated with Freezing of Uses}
 \label{fig:runtime-syntax-freeze}
 %% \figrule
@@ -1743,8 +1772,13 @@ the runtime syntax; this allows for the suspension of arbitrary \emph{uses}.
 
 \begin{figure}[h]
 %% \figrule
+\scalebox{\figscale}{%
 \flushleft
 $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'}$
+}
+
+\scalebox{\figscale}{%
+\centering
 \begin{mathpar}
 
 \inferrule[R-Freeze-Use]
@@ -1760,6 +1794,7 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'}$
   { \EF[\EC[\freeze{m}]] \redtoc \freeze{\EF[\EC[m]]} }
 
 \end{mathpar}
+}
 
 \caption{Updated Freezing}
 \label{fig:Freezing}
@@ -1784,15 +1819,20 @@ computation performed an effect.
 \begin{figure}[t]
 %% \figrule
 \flushleft
+
+\scalebox{\figscale}{%
+\centering
 %\textit{Comp. pattern $r$ for $\langle \Delta \rangle A$ matches $u$ under
 %amb. $\venv$ and binds $\venv$.}
 \begin{mathpar}
+
 \inferrule[B-CatchAll-Freeze]
   {\adjact{\sigs}{\adj}{\sigs'}}
   {\bindsc{\effin{x}}{\effin{\adj}A}{\freeze{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
 \end{mathpar}
+}
 
-\caption{Catching Interrupts rule. }
+\caption{Unfreezing Computations Rule.}
 \label{fig:catchall-freeze}
 %% \figrule
 \end{figure}
@@ -1818,9 +1858,10 @@ this is the pattern that matches.
 
 Observe that the freezing approach of Section~\ref{sec:freezing-terms} ends up
 reimplementing a lot of the behaviour of the freezing of ordinary commands,
-without adding much new behaviour. It turns out that we can get the exact same
-behaviour by just inserting a command invocation into the term instead, and
-handling this as normal.
+without adding much new behaviour. Furthermore, the term gets automatically
+unfrozen at the closest handler, which may not be what we want. It turns out that
+we can get the exact same behaviour by just inserting a command invocation into
+the term instead, and handling this as normal.
 %
 %% This
 %% will also freeze the computation up until the nearest handler of the inserted
@@ -1855,15 +1896,21 @@ We refer to this system as \nondetfrank.
 
 \begin{figure}[h]
 %% \figrule
+\scalebox{\figscale}{%
 \flushleft
 $\boxed{n \redtou n'} $
+}
+
+\scalebox{\figscale}{%
 \begin{mathpar}
+
 %
 %
 \inferrule[R-Yield-EF]
           { \EC~\textsf{allows}~\yield }
           { \EC[n] \redtou \EC[\textsf{yield!}; n] }
 \end{mathpar}
+}
 %
 %
 \caption{Inserting Yields}
@@ -1918,9 +1965,9 @@ fewer new rules and constructs.
 
 \paragraph*{Nondeterminism}
 
-Observe that this system, and the system from Section~\ref{sec:freezing-terms},
-are both nondeterministic. This is because at any point we have the opportunity
-to either invoke yield (respectively freeze the term), or continue as before.
+This system, and the system from Section~\ref{sec:freezing-terms}, are both
+nondeterministic. This is because at any point we have the opportunity to either
+invoke yield (respectively freeze the term), or continue as before.
 
 Consider running \code{hdl (print "A") (print "B")}, for some binary
 multihandler \code{hdl}. We could evaluate
@@ -1930,15 +1977,20 @@ different things printed to the console.
 
 \section{Counting}
 
-The semantics given by Section~\ref{sec:inserting-yields} is fine, but is
-non-deterministic; at any point, we can choose to either insert a \yield
-invocation or carry on as normal. Furthermore, we do not particularly need to
-yield very frequently; we might rather yield every 1000 reduction steps or so.
+%% The semantics given by Section~\ref{sec:inserting-yields} is fine, but is
+%% non-deterministic; at any point, we can choose to either insert a \yield
+%% invocation or carry on as normal. Furthermore, we do not particularly need to
+%% yield very frequently; we might rather yield every 1000 reduction steps or so.
 
-As such, we supplement the operational semantics with a counter $\counter$. This
-counter has two states; it could either be counting up, which is the form
-$\justc{n}$ for some $n$, or it is a signal to yield as soon as possible, which
-is the form $\yieldc$.
+The system described in Section~\ref{sec:inserting-yields} is slightly
+problematic; not only is it nondeterministic, but we can insert a \yield
+whenever we want. If we spend too much time inserting and handling \yield
+commands little other computation will be done.
+
+To combat this we supplement the operational semantics with a counter
+$\counter$. This counter has two states; it could either be counting up, which
+is the form $\justc{n}$ for some $n$, or it is a signal to yield as soon as
+possible, which is the form $\yieldc$.
 
 To increment this counter, we use a slightly modified version of addition,
 denoted $\plusc$. This is simply defined as
@@ -1960,10 +2012,15 @@ rules for inserting yields. We refer to this system as \countingfrank.
 
 \begin{figure}
 %% \figrule
+\scalebox{\figscale}{%
 \flushleft
 $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
     \stepstou m'} \quad \boxed{n \stepstoc n'}$
+}
+
+\scalebox{\figscale}{%
 \begin{mathpar}
+
 \inferrule[R-Handle-Count]
   {% The type system should enforce this!
    %(\handles{\adj_j}{t_j})_j \\
@@ -1988,6 +2045,7 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 \\
 
 \end{mathpar}
+}
 
 \caption{Yielding with Counting}
 \label{fig:counting-rules}
@@ -2173,7 +2231,9 @@ labelled with the counters then the counters remain unchanged.
 \begin{figure}
 %% \figrule
 %% \flushleft
+\scalebox{\figscale}{%
 \begin{mathpar}
+
 \inferrule[Add-Counter]
           { \EC[n]; \bluetext{c_n, \ldots, c_1} \redtou \EC[n']; \bluetext{c_n,
               \ldots, c_1} \\
@@ -2181,6 +2241,7 @@ labelled with the counters then the counters remain unchanged.
           { \EF[\EC[n]]; \bluetext{c_{n+1}, c_n, \ldots, c_1} \redtou
             \EF[\EC[n']]; \bluetext{c_{n+1}, c_n, \ldots, c_1}}
 \\
+
 \inferrule[R-Handle]
   { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
     (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
@@ -2191,6 +2252,7 @@ labelled with the counters then the counters remain unchanged.
     \redtou
     \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_n}, \ldots, \succc{c_1}} }
 \\
+
 \inferrule[R-Yield-Can]
   { \EC~\allows~\Yield \\
     \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc
@@ -2209,6 +2271,7 @@ labelled with the counters then the counters remain unchanged.
     \bluetext{c_n, \ldots, c_2, \yieldc} }
 \\
 \end{mathpar}
+}
 \caption{New counting, backwards ordered though}
 \label{fig:tree-counting}
 \end{figure}
