@@ -487,9 +487,11 @@ about and specify computational effects in programming languages. For instance,
 a program that reads from and writes to some local state can utilise the
 \textsf{State} effect, which supports two \emph{operations}; \textsf{get} and
 \textsf{put}. A handler for the \textsf{State} effect gives a meaning to these
-abstract operations.
-
-Programming with effects is increasingly popular, references, ...
+abstract operations. Programming with algebraic effects and handlers is
+increasingly popular; they have seen adoption in the form of libraries for
+existing languages (\cite{kammar2013handlers, kiselyov2013extensible,
+  brady2013programming}) as well as in novel languages designed with effect
+handling at their core (\cite{bauer2015programming, leijen2017type, convent2020doo}).
 
 Traditional effect handling is \emph{synchronous}; when an operation is invoked,
 the rest of the computation pauses whilst the effect handler performs the
@@ -504,8 +506,8 @@ case is even stronger if we do not immediately want the data. To support this
 kind of behaviour, we need to be able to invoke and handle effects in an
 asynchronous, non-blocking manner.
 
-\texthighlight{In this project we investigate the implementation and
-  applications of asynchronous effects}. Our lens for this is the language
+In this project we investigate the implementation and applications of
+asynchronous effects. Our lens for this is the language
 Frank~(\cite{convent2020doo}), a functional programming designed with effect
 handlers at its core. We follow the design
 of~\aeff~(\cite{ahman2020asynchronous}), a small programming language designed
@@ -513,9 +515,6 @@ around asynchronous effects but supporting little else. We show how, with a
 small change to the semantics of Frank, we can recreate the asynchronous effect
 handling behaviour of~\aeff~whilst enjoying the benefits of traditional effect
 handlers.
-
-%% The changes made to Frank are straightforward to recreate, and whilst the Frank
-%% library for programming with asynchronous effects enjoys some specific
 
 Frank is a well-suited language for an asynchronous effects library, especially
 because of the fine-grained control over suspended computations, making it very
@@ -537,12 +536,12 @@ us how Koka can naturally support asynchronous programming
 asynchronous tasks with a \textsf{setTimeout} function supplied by the NodeJS
 backend.
 
-Multicore OCaml (\textbf{ref}) also supports asynchronous programming through
-effect handling. They handle effects and signals, which can be received
-asynchronously, and show how to efficiently and safely write concurrenct systems
-programs. However, in a similar way to Koka, the asynchrony relies on the
-operating system supplying operations, such as \textsf{setSignal} and
-\textsf{timer} signals.
+Multicore OCaml (\cite{dolan2014multicore}) also supports asynchronous
+programming through effect handling (\cite{dolan2017concurrent}). They handle
+effects and signals, which can be received asynchronously, and show how to
+efficiently and safely write concurrenct systems programs. However, in a similar
+way to Koka, the asynchrony relies on the operating system supplying operations,
+such as \textsf{setSignal} and \textsf{timer} signals.
 
 A problem shared by both Koka and Multicore OCaml is they have no support for
 \emph{user-defined} asychronous effects; the asynchronous signals that can be
@@ -559,7 +558,7 @@ interrupt is received.
 
 \todo{Section on the expressivity?}
 
-We design our system around \aeff, embedding its behaviour into Frank. We show
+We design our system based on \aeff, embedding its behaviour into Frank. We show
 that we can easily recover the behaviour of \aeff~when equipped with effect
 handlers, and show that asynchronous effects can still be used in conjunction
 with traditional, synchronous effects.
@@ -567,21 +566,21 @@ with traditional, synchronous effects.
 %
 %The most prominent work is \aeff~(\cite{ahman2020asynchronous}),
 
-\section{Contributions}
+\paragraph*{Contributions}
 
-\paragraph*{Asynchronous Effects Library} We present a library for programming
+\subparagraph*{Asynchronous Effects Library} We present a library for programming
 with asynchronous effects in the style of \aeff, built in Frank. We show how a
 complex system can be expressed concisely and elegantly when programming in a
 language with effect handlers, further cementing the case for effects as a
 foundation for concurrent programming. \todo{Rewrite the end of this; slightly
   messy}.
 
-\paragraph*{Pre-emptive Concurrency} We show how, by making a small change to
+\subparagraph*{Pre-emptive Concurrency} We show how, by making a small change to
 the operational semantics of Frank, we achieve pre-emptive concurrency; that is,
 the suspension of running threads \emph{without} co-operation. It is our hope
 that this change is simple enough to be transferrable to other languages.
 
-\paragraph*{Examples} We also deliver a set of examples of the uses of
+\subparagraph*{Examples} We also deliver a set of examples of the uses of
 asynchronous effects, and show how they have benefits to other models.
 
 \section{Structure}
@@ -643,10 +642,10 @@ A computation type
 %% This type expresses that the operator can handle some effect in the first
 %% argument and then performs some other effects as a result, returning a value of
 %% type \code{Y}.
-expresses that we take $m$ arguments and return a value of type \code{Y}. The
-return type expresses the \emph{ability} the computation needs access to, being
-a list of $n$ \emph{interface} instances. An interface is a collection of
-\emph{commands} which are offered to the computation.
+expresses that the operator takes $m$ arguments and return a value of type
+\code{Y}. The return type also expresses the \emph{ability} the computation
+needs access to, being a list of $n$ \emph{interface} instances. An interface is
+a collection of \emph{commands} which are offered to the computation.
 
 %% Frank then specialises effect handling to traditional function application; a
 %% function is the special case of an operator that handles no arguments. We see
@@ -657,11 +656,9 @@ a list of $n$ \emph{interface} instances. An interface is a collection of
 Thunks are then the special case of an $n$-ary function that takes 0 arguments.
 We can evaluate them --- performing the suspended computation --- with the 0-ary
 sequence of arguments, denoted \code{!}. Computations are suspended by wrapping
-them in braces.
-
-This gives us fine-grained control over when we want to evaluate computations.
-For instance, we might want the sequential composition operator \code{snd} (also
-commonly known as the semicolon operator);
+them in braces. This gives us fine-grained control over when we want to evaluate
+computations. For instance, we might want the sequential composition operator
+\code{snd} (also commonly known as the semicolon operator);
 
 \begin{lstlisting}
   snd : {X -> Y -> Y}
@@ -2342,7 +2339,9 @@ does, however, track the traditional effects that are permitted in promises.
 \paragraph*{}
 
 \aeff's interrupt handlers are manifested in Frank through the \code{Promise}
-interface.
+interface. All of the keywords used in \aeff~are just operations of the
+\code{Promise} interface, with the \code{promise} operation being a \emph{scoped}
+operation (\cite{pirog2018syntax}).
 
 %% \begin{lstlisting}
 %% interface Promise <@\greytext{[E]}@> =
@@ -2392,7 +2391,8 @@ interrupt handler corresponding to an asynchronous division could be;
   div _ = nothing
 \end{lstlisting}
 
-\noindent We call the thunk \code{signal (response (n / d))} the \emph{body} of
+\noindent where we don't want to fire if the denominator is 0, obviously.
+We call the thunk \code{signal (response (n / d))} the \emph{body} of
 the interrupt handler. We say that an interrupt handler \emph{fires} if an
 interrupt is received that results in a non-\code{nothing} value. Observe that
 whilst we can perform some computation when deciding whether or not to fire
@@ -2728,13 +2728,13 @@ as a counter, or as a way to tell specific threads to stop or go. The blocking
 or non-blocking behaviour then depends on the promises for these signals.
 
 \begin{lstlisting}
-onStop : {Int -> <@\greytext{[Promise, Yield, RefState]}@> Unit}
+onStop : {Int -> <@\greytext{[Promise]}@> Unit}
 onStop id = let gp = promise (prom {s -> goPromise id s}) in
             await gp;
             promise (prom {s -> stopPromise id s});
             unit
 
-stopPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise, Yield, RefState]}@>Unit}}
+stopPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
 stopPromise id (stop n) = if (n == id)
                             { just { onStop id } }
                             { nothing }
@@ -2750,7 +2750,7 @@ the rest of the computation can start again, and the \code{stop} interrupt
 handler is reinstalled.
 
 \begin{lstlisting}
-goPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise, Yield, RefState]}@>Unit}}
+goPromise : {Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
 goPromise id (go n) = if (n == id)
                          { just {unit} }
                          { nothing }
@@ -2768,7 +2768,7 @@ schedulable. The computation being scheduled is then unaware it is being
 scheduled, as desired.
 
 \begin{lstlisting}
-counter : {Int -> <@\greytext{[Console, Yield]}@>Unit}
+counter : {Int -> <@\greytext{[Console]}@> Unit}
 counter x = ouint x; print " "; sleep 200000; counter (x + 1)
 
 thread : {<@\greytext{[Promise, Console, RefState, Yield]}@> Unit}
@@ -2786,7 +2786,7 @@ to abstract over scheduling strategies, and this strength is still present here.
 Our developed asynchronous effects system is expressive enough to implement the
 asychronous post-processing of results, or \emph{futures}, on top of what we
 already have. Previously these have had to be implemented as a separate language
-feature. \todo{Reference for being a separate feature!}
+feature(\cite{schwinghammer2002concurrent}).
 
 Futures are useful if we want to asynchronously perform some action once another
 promise has been completed. In the context of a web application, this might be
@@ -2796,7 +2796,8 @@ once we have this; we do not want to block everything else from running, but
 want to perform this action asynchronously, when the promise is complete.
 
 \begin{lstlisting}
-futureList : {Pid R <@\greytext{[E|]}@> -> {R -> <@\greytext{[E|]}@> Z} -> Sig -> Maybe {<@\greytext{[E|]}@> Z}}
+futureList : {Pid R <@\greytext{[Promise]}@> -> {R -> <@\greytext{[Promise]}@> Z} -> Sig
+    -> Maybe {<@\greytext{[Promise]}@> Z}}
 futureList p comp (listSig _) =
     just { let res = await p in comp res}
 futureList _ _ _ = nothing
@@ -2820,8 +2821,6 @@ then executes \code{prod}, which then lets the final one run. This behaviour
 depends on signals being able to execute many promises at once (that is,
 behaving like \emph{deep} rather than shallow handlers).
 
-
-
 \section{Async-Await with Workers}
 
 Our asynchronous effects system can express the familiar async-await
@@ -2835,12 +2834,12 @@ inefficiency associated with having extra idle workers.
 We first show how the caller communicates with the controller.
 
 \begin{lstlisting}
-resultWaiter : {Int -> Sig ->  Pid String [WebEffs]}
+resultWaiter : {Int -> Sig -> Pid String <@\greytext{[Promise]}@>}
 resultWaiter callNo (result res callNo') =
     if (callNo == callNo') { just {res} } { nothing }
 resultWaiter _ _ = nothing
 
-async : {[InTask] String} -> Ref Int -> Pid String [WebEffs]
+async : {[{String} -> Ref Int -> <@\greytext{[Promise]}@> Pid String <@\greytext{[Promise]}@>
 async proc callCounter =
     let callNo = read callCounter in
     let waiter = {s -> resultWaiter callNo s} in
@@ -2848,8 +2847,6 @@ async proc callCounter =
     write callCounter (callNo + 1);
     waiter
 \end{lstlisting}
-
-\todo{Talk about interface aliases}
 
 We use this function to issue a new asynchronous task. We keep a global counter
 to give each call a unique identifier. We then install an interrupt handler that
@@ -2865,14 +2862,16 @@ also installs a promise to set its state to idle once the corresponding
 \code{result} message is received.
 
 \begin{lstlisting}
-onResult : {Ref (List (Maybe Int)) -> Int -> Sig -> Maybe {[WebEffs] Unit}}
+onResult : {Ref (List (Maybe Int)) -> Int -> Sig
+    -> Maybe {<@\greytext{[Promise]}@> Unit}}
 onResult active wid (result res cid) =
     just { write active (putIn nothing wid (read active)) }
 onResult _ _ _ = nothing
 
-onAsyncBody : {Ref (List (Maybe Int)) -> {[InTask] String} -> Int -> [WebEffs] Unit}
+onAsyncBody : {Ref (List (Maybe Int)) -> {String} -> Int
+    -> <@\greytext{[Promise]}@> Unit}
 onAsyncBody active p callId =
-    case (findFree (read active))
+    case (nextFree (read active))
         { nothing -> print "All workers are busy."
         | (just wid) ->
             write active (putIn (just callId) wid (read active));
@@ -2886,7 +2885,7 @@ the payload, they simply perform the computation and send a signal with the
 result.
 
 \begin{lstlisting}
-workProm : {Int -> Sig -> Maybe {[WebEffs] Unit}}
+workProm : {Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
 workProm wid (workIn p wid' callId) =
     if (wid == wid')
        { just {let res = p! in
@@ -2895,7 +2894,7 @@ workProm wid (workIn p wid' callId) =
        { nothing }
 workProm _ _ = nothing
 
-worker : {Int -> Pid Unit [WebEffs]}
+worker : {Int -> <@\greytext{[Promise]}@> Pid Unit <@\greytext{[Promise]}@>}
 worker wid = promise (prom {s -> workProm wid s})
 \end{lstlisting}
 
@@ -2923,20 +2922,20 @@ the continuation and replaces it with some default value (e.g. \code{unit}).
 %% tasks run on their own thread. As such, we can just cancel the entire thread at
 %% the top-level.
 
-WE can use this to cancel a task issued with \code{async}. Recall that tasks run
+We can use this to cancel a task issued with \code{async}. Recall that tasks run
 on their own worker thread. As such, all we need to do to cancel them is
 reinstall the worker promise --- which waits for new tasks --- and then invoke
 the cancel effect. As such, our worker code becomes
 
 \begin{lstlisting}
-canceller : {Int -> Int -> Sig -> Maybe {[WebEffs] Unit}}
+canceller : {Int -> Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
 canceller wid callId (cancelCall callId') =
     if (callId == callId')
         { just {worker wid; cancel!} }
         { nothing }
 canceller _ _ _ = nothing
 
-workProm : {Int -> Sig -> Maybe {[WebEffs] Unit}}
+workProm : {Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
 workProm wid (workIn p wid' callId) =
     if (wid == wid')
        { just {<@\texthighlight{promise (prom \{s -> canceller wid callId s\}}@>;
@@ -2981,7 +2980,7 @@ operator~\cite{leijen2017structured}.
 
 \begin{lstlisting}
 resultWaiter : {String -> Int -> Int -> Int
-    -> Maybe {[WebEffs] String}}
+    -> Maybe {<@\greytext{[Promise]}@> String}}
 resultWaiter res callNo callA callB =
     if (callNo == callA)
         { just { signal (cancelCall callB); res} }
@@ -2989,8 +2988,8 @@ resultWaiter res callNo callA callB =
             { just { signal (cancelCall callA); res} }
             { nothing }}
 
-interleave : {{[InTask] String} -> {[InTask] String}
-          -> Ref Int -> [WebEffs] Pid String [WebEffs]}
+interleave : {{String} -> {String}
+    -> Ref Int -> <@\greytext{[Promise]}@> Pid String <@\greytext{[Promise]}@>}
 interleave procA procB callCounter =
     let callA = read callCounter in
     write callCounter (callA + 1);
@@ -3019,7 +3018,10 @@ We can also run two identical requests to different services and just take the
 result of the one that returns first. The \code{interleave} operator can be
 composed with itself to yield the $n$-ary operator \code{interleave} operator.
 
-Observe the similarity of \code{interleave} and \code{async}.
+Observe the similarity of \code{interleave} and \code{async}. By taking
+asynchronous programming structures out of library code and into the
+programmer's hands, we hope that programmers will be able to more easily produce
+their own, useful tools.
 
 
 \chapter{Conclusion}
