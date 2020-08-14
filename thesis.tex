@@ -1229,8 +1229,9 @@ list of interfaces.
 %% skip over the typing rules, as they are standard. These can be seen in the
 %% appendix.
 
-We omit details on adaptors as they are present in previous work. The same goes
-for the typing rules, which we do not change.
+We omit details on adaptors as they are present in previous work
+(\cite{convent2020doo}). The same goes for the typing rules, which we do not
+change.
 
 \begin{figure} %\figrule
 \centering
@@ -2818,12 +2819,22 @@ one.
 \chapter{Examples}
 \label{chap:examples}
 
-The combination of our \code{Promise} interface with the pre-emptive concurrency
-of Section~\ref{chap:preemptive-concurrency} lets us express complex concurrent
-programs in a simple, direct manner. In this section we show some examples of
-these.
+%% The combination of our \code{Promise} interface with the pre-emptive concurrency
+%% of Section~\ref{chap:preemptive-concurrency} lets us express complex concurrent
+%% programs in a simple, direct manner. In this section we show some examples of
+%% these.
 
-\todo{Improve above paragraph}
+%% The developed library gives us an expressive, malleable way to implement common
+%% asynchronous programming features within our language.
+
+Many languages which support async-await --- such as C# and Javascript --- have
+the behaviour built-in. First the compiler is changed to add new syntax, then
+the compiler is changed to add new type-checking, then we have to implement the
+semantics; even worse, we have to do this when we want another asynchronous
+primitive, such as futures (asynchronous post-processing of results).
+
+We show that with our promise library we can implement all of these common
+asynchronous primitives within the language itself.
 
 \section{Pre-emptive Scheduling}
 
@@ -2836,9 +2847,10 @@ these.
 
 Whilst we have already shown how to pre-emptively schedule several threads in
 Section~\ref{sec:handling}, we might want to have a more robust way of doing
-this; the multihandler strategy is fixed in a left-to-right evaluation order.
-
-\todo{Add more}
+this; the multihandler strategy is fixed in a left-to-right evaluation order. In
+this method, we can just have a single source sending out \code{stop} and
+\code{go} messages, implementing a potentially more sophisticated scheduling
+strategy than mere round-robin.
 
 \begin{lstlisting}
 data Sig = <@\ldots@> | stop Int | go Int
@@ -2884,15 +2896,19 @@ it just returns \code{unit}.
 %% We can then make a function  by just installing a stop-waiting promise
 %% in front of the function code;
 
-We can then install the stop interrupt handler before a computation to make it
-schedulable. The computation being scheduled is then unaware it is being
-scheduled, as desired.
+%% We can then install the stop interrupt handler before a computation to make it
+%% schedulable. The computation being scheduled is then unaware it is being
+%% scheduled, as desired.
+
+To make a thread pre-emptible, we simply install the stop interrupt handler
+before the main body of the computation. The computation being scheduled is then
+entirely unaware it is being scheduled, as desired.
 
 \begin{lstlisting}
 counter : {Int -> <@\greytext{[Console]}@> Unit}
 counter x = ouint x; print " "; sleep 200000; counter (x + 1)
 
-thread : {<@\greytext{[Promise, Console, RefState, Yield]}@> Unit}
+thread : {<@\greytext{[Promise, Console, Yield]}@> Unit}
 thread! = promise (prom {s -> stopPromise 0 s}); counter 0
 \end{lstlisting}
 
@@ -2901,13 +2917,21 @@ This could just be a standard round-robin scheduler or some more sophisticated
 strategy. One of the strengths of effect handlers for concurrency is the ability
 to abstract over scheduling strategies, and this strength is still present here.
 
+One disadvantage to our approach is that an adversarial thread could just send
+\code{stop} and \code{go} signals of its own, overriding the scheduler. Using
+session types (\cite{honda1998language}) to restrict inter-thread communication
+would be able to solve this problem.
+
+%% A
+%% stronger type system to control communication would be able to fix this.
+
 \section{Futures}
 \label{sec:futures}
 
 Our developed asynchronous effects system is expressive enough to implement the
 asychronous post-processing of results, or \emph{futures}, on top of what we
 already have. Previously these have had to be implemented as a separate language
-feature(\cite{schwinghammer2002concurrent}).
+feature (\cite{schwinghammer2002concurrent}).
 
 Futures are useful if we want to asynchronously perform some action once another
 promise has been completed. In the context of a web application, this might be
@@ -2971,11 +2995,11 @@ async proc callCounter =
 
 We use this function to issue a new asynchronous task. We keep a global counter
 to give each call a unique identifier. We then install an interrupt handler that
-waits for a result and simply returns it. Finally we send a \code{call} signal
-with the process and return the result interrupt handler. Observe that
-\code{async} returns the promise waiting for the correct result. As such, the
-\code{await} operation is just the built-in \code{await} operation; we don't
-need to define any extra functions.
+waits for a result and simply returns it, if the call numbers match. Finally we
+send a \code{call} signal with the process and return the result interrupt
+handler. Observe that \code{async} returns the promise waiting for the correct
+result. As such, the \code{await} operation is just the built-in \code{await}
+operation; we don't need to define any extra functions.
 
 \code{call} signals are handled by the controller thread. This thread keeps
 track of which of the workers do not currently have a task running, and
@@ -3024,7 +3048,6 @@ This \code{result} signal triggers the interrupt handler installed by the
 to inform it that the worker is now idle. This ability to trigger multiple
 promises with one message is a subtle but useful feature of the system.
 
-
 \section{Cancelling Tasks}
 
 Because we are working in a language equipped with effect handlers, we can
@@ -3070,10 +3093,11 @@ workProm _ _ = nothing
 We have to modify the handler for the \textsf{Promise} effect for this. Recall
 that when we install a promise, we convert it to a form that takes composes the
 body of the promise with the interrupted computation and rehandles the
-\code{Promise} effects that this might perform. We need to then wrap this in a
-handler for \textsf{Cancel} effects again; this is because user-level promises
-could perform \textsf{Cancel} effects, and we want to cancel the \emph{whole}
-computation, not just the body of the promise.
+\code{Promise} effects that this might perform.
+%
+We need to then wrap this in a handler for \textsf{Cancel} effects again; this
+is because user-level promises could perform \textsf{Cancel} effects, and we
+want to cancel the \emph{whole} computation, not just the body of the promise.
 
 \begin{lstlisting}
 case (cbMod sig)
@@ -3084,11 +3108,11 @@ case (cbMod sig)
 
 The realisation of cancellable function calls in
 \aeff(\cite{ahman2020asynchronous}) was to start awaiting a new promise that
-will never be installed. This leads to a space leak as unfulfilled promises
+will never be fulfilled. This leads to a space leak as unfulfilled promises
 build up. Our approach improves on this as the cancelled calls do genuinely
 disappear.
 
-However, a weakness of ours is that we have to modify the handler code for
+However, a weakness of our system is that we have to modify the handler code for
 promises, even though cancellation of calls and promises should be orthogonal.
 
 \section{Interleaving}
