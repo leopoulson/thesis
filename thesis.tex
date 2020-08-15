@@ -2502,7 +2502,12 @@ boringFeed _ = nothing
 \end{lstlisting}
 
 \noindent Whenever we receive a \code{nextItem} interrupt we just print out
-\code{10} and return unit.
+\code{10} and return unit. From henceforth we also refer to interrupt handlers
+as \emph{promises}; an interrupt handler for \textsf{op} once installed is a
+\emph{promise} to perform the given action once an \textsf{op} interrupt is
+received.
+
+\todo{Maybe get rid of this part.}
 
 Asynchrous effects are useful for writing \emph{multithreaded} programs. The
 program \feed~would be one thread of several; there might for instance be
@@ -2525,7 +2530,66 @@ threads.
 \section{An Interface for Asynchronous Effects}
 
 To make our ideas more concrete, we introduce the Frank interface used for
-programming with asynchronous effects.
+programming with asynchronous effects. First of all we introduce the datatype
+used to track the state of an installed promise, \code{Prom}.
+
+\begin{lstlisting}
+data Prom X = prom (Ref (PStatus X))
+data PStatus X = waiting | done X | resume {X -> Unit}
+\end{lstlisting}
+
+A value of type \code{Prom X} is a reference to a value of type \code{PStatus
+  X}. It is stored as a reference as we have to write to this cell from two
+locations; the interrupt handler itself and the handler for \code{await}
+commands (shown later in this section).
+%
+\todo{Justify reference better?}
+%
+\code{PStatus} has three constructors. The first, \code{waiting}, expresses that
+the promise has not yet been fulfilled. The second, \code{done x}, expresses
+that the promise has completed and resulted in a value, \code{x}. The third
+option, \code{resume cont}, is used when a promise is awaited. The continuation
+\code{cont} is the continuation offered by the calling cde when the \code{await}
+effect is performed. We see how this is handled later in this section.
+\todo{Maybe go over this?}
+
+\todo{Talk about caller not getting access to the Pid cell}
+
+\begin{lstlisting}
+interface Promise S =
+    promise R : {S -> Maybe {<@\greytext{[Promise S, RefState, Yield]}@> R}}
+             -> Prom R <@\greytext{[Promise S, RefState, Yield]}@>
+  | signal : S -> Unit
+  | await R : Prom R <@\greytext{[Promise S, RefState, Yield]}@> -> R
+\end{lstlisting}
+
+The entire \code{Promise} interface is polymorphic in the type of
+\emph{signals} that threads can perform. However, the commands themselves are
+polymorphic in the result types. \todo{Flesh this out / remove it.}
+
+The \code{promise} command is used to install an interrupt handler; it
+takes an interrupt handler and returns a \code{Prom R} value. The interrupt
+handler can perform further \code{Promise S} effects, and must also have access
+to the \code{RefState} interface; we show why later. The \code{Yield} interface
+is also present so that interrupt handlers are themselves pre-emptible when
+executed.
+
+The \code{signal} command simply takes a value of the \code{S} type and returns
+\code{unit}. When handling \code{signal sig}, all other threads are informed
+that some thread has invoked the signal \code{sig}. At this point the other
+threads are \emph{interrupted}, and all installed interrupt handlers are
+evaluated against the signal. We revisit how interrupt handlers are executed
+later.
+
+\todo{Redo above}
+
+Finally, the \code{await} command takes a \code{Prom R} cell and returns a value
+of type \code{R}. Here we block and eventually return the value of the promise,
+once it is available.
+
+\section{In Action}
+
+Let's revisit the infinitely scrolling feed example from earlier. When the user
 
 
 
