@@ -111,6 +111,8 @@
 \newcommand\countingfrank{$\mathbb{F}_{\cal{C}}$}
 \newcommand\treefrank{$\mathbb{F}_{\cal{T}}$}
 
+\newcommand\feed{$\mathcal{F}$}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start of inference rules typesetting business
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2260,7 +2262,7 @@ labelled with the counters then the counters remain unchanged.
   }
   { \EC[m]; \bluetext{c_n, \ldots, c_2, \yield} \redtou \EC[\yield!; m];
     \bluetext{c_n, \ldots, c_2, \justc{0}}}
-  \\
+\\
 
 \inferrule[R-Yield-Can't]
   { \neg (\EC~\allows~\Yield) \\
@@ -2416,405 +2418,520 @@ $\infers{\cdot}{\cdot}{\sigs}{m}{A}$ and $\checks{\cdot}{\cdot}{\sigs}{A}{n}$.
 \chapter{Implementation}
 \label{chap:implementation}
 
-We now introduce the Frank library used for asynchronous effects.
+%% We now introduce the Frank library for programming with asynchronous effects.
+%% %
+%% Our design closely follows \aeff~(\cite{ahman2020asynchronous}), a language
+%% designed around writing multithreaded programs using asycnhronous effects.
+
+In this section we give a brief introduction to programming with asynchronous
+effects, and introduce the Frank library for doing so.
 %
-Our design closely follows the design of \aeff~(\cite{ahman2020asynchronous}), a
-language designed around writing multithreaded programs that communicate by
-sending \emph{interrupts}. A thread dictates how it will respond to an interrupt
-by installing an \emph{interrupt handler}, also known as a \emph{promise}.
+Our design closely follwos \aeff~(\cite{ahman2020asynchronous}).
+
+One can consider the traditional treatment of effect
+handling~(\cite{kammar2013handlers}) as having three stages. First an operation
+\textsf{op} is invoked. Then the handler for \textsf{op} --- being the
+\emph{implementation} of \textsf{op} --- is evaluated until it returns some
+value \textsf{V}. Finally, the continuation of the caller is resumed.
+
+\todo{Check the maths here}
+
+What makes effect handling \emph{synchronous} is that the three stages above
+happen in order and straight away. As soon as \textsf{op} is invoked, the
+handler is evaluated with the arguments to \textsf{op}. As soon as the handler
+has reduced to a value, the continuation is resumed. \todo{Rewrite this bit.}
 %
-%% These are analogous to traditional effects and handlers; an interrupt when
-%% invoked is like the invocation of a command, and an interrupt handler is like an
-%% effect handler.
-Interrupts and interrupt handlers can be seen as a less expressive version of
-effects and effect handlers; an interrupt handler describes how to behave on
-receipt of an interrupt, but it does not get access to the continuation of the
-caller.
+The \emph{asynchronous} treatment of effect handling decouples these three
+stages; each of invoking an effect, evaluation of the handler, and resumption of
+the caller are separate. This permits the non-blocking invocation of effects; we
+invoke an operation and can continue the rest of the computation before the
+operation has been handled.
+%
+The decoupling of operation invocation from handling has other benefits that we
+discuss later in this section.
+%
+%% A secondary benefit of decoupling the components of effect handling is that
+%% operations can be invoked
 
-Interrupts and interrupt handlers have one particularly compelling feature; when
-we invoke an interrupt (in the case of synchronous effects, this is just
-invoking a command), we can carry on computing the rest of the code whilst we
-wait for a response. This is a stark difference to normal effects, where the
-rest of the computation is blocked whilst we wait for an answer. The programmer
-can then choose to await the response from interrupt, which blocks
-computation until the interrupt handler has been fulfilled.
+\todo{Talk about how these are all decoupled}
 
-Unlike \aeff, our system does not track the uses of asychronous effects. It
-does, however, track the traditional effects that are permitted in promises.
+\section{Communication}
+
+Consider a program \feed which lets the user scroll through an seemingly infinite feed
+of information (example due to \citeauthor{ahman2020asynchronous}). The program
+cycles through its current cache of data as the user requests more; the program
+simulates being infinite by making a request for another cache of data whenever
+the user is nearly at the end of the current cache.
+
+How is this implemented with asynchronous effects? We have a number of operations
+here; \code{request} for when \feed~needs more information, \code{display d} to
+display data \code{d}, and then the \code{next} operations that \feed~responds
+to. Observe that from the point of view of \feed, \code{request} and
+\code{display} differ to \code{next}; the latter two are operations that
+\feed~performs, whilst \code{next} is an operation \feed~\emph{responds} to. We
+call the latter (outgoing) operations \emph{signals} and the former (incoming)
+opreations \emph{interrupts}.
+
+\todo{Maybe highlight that there's not a material difference between sigs and
+  interrupts and that it's just a naming thing}.
+
+\todo{Maybe we don't need display?}
 
 
-\paragraph*{}
+We define \emph{interrupt handlers} to dictate how to act when an interrupt is
+received. An interrupt handler is a function of type \code{S -> Maybe \{R\}},
+where \code{S} is a sum type made up of the possible interrupts that can be
+received.
+%
+\todo{Fix the way we talk about S.}
+%
+The return type of the handler is \code{Maybe \{R\}} as we can choose \emph{not}
+to handle the interrupt if we wish; this could be because it is the wrong type,
+or for some other reason.
+%
+\todo{Again fix ``for some other reason''}.
+%
+An example of an interrupt handler is \code{boringFeed};
 
-\aeff's interrupt handlers are manifested in Frank through the \code{Promise}
-interface. All of the keywords used in \aeff~are just operations of the
-\code{Promise} interface, with the \code{promise} operation being a \emph{scoped}
-operation (\cite{pirog2018syntax}).
+\begin{lstlisting}
+data FeedSigs = nextItem | request | display String
+
+boringFeed : {FeedSigs -> Maybe {[Console] Unit}}
+boringFeed nextItem = just {print "10"}
+boringFeed _ = nothing
+\end{lstlisting}
+
+\noindent Whenever we receive a \code{nextItem} interrupt we just print out
+\code{10} and return unit.
+
+Asynchrous effects are useful for writing \emph{multithreaded} programs. The
+program \feed~would be one thread of several; there might for instance be
+another thread which acts as a server and responds to \code{request} interrupts.
+We might then have another one which acts as the user interface and sends
+\code{nextItem} signals and responds to \code{display d} interrupts.
+
+The decoupling of invoking an operation and handling an operation means that an
+operation can be handled multiple --- or even 0 --- times, across different
+threads.
+
+
+
+\todo{Talk about system?}
+
+\todo{Talk about how one msg can start many handlers, etc}
+
+\todo{Talk about signals converted to interrupts}
+
+\section{An Interface for Asynchronous Effects}
+
+To make our ideas more concrete, we introduce the Frank interface used for
+programming with asynchronous effects.
+
+
+
+
+%% \chapter{Implementation (Old)}
+
+%% We now introduce the Frank library used for asynchronous effects.
+%% %
+%% Our design closely follows the design of \aeff~(\cite{ahman2020asynchronous}), a
+%% language designed around writing multithreaded programs that communicate by
+%% sending \emph{interrupts}. A thread dictates how it will respond to an interrupt
+%% by installing an \emph{interrupt handler}, also known as a \emph{promise}.
+%% %
+%% %% These are analogous to traditional effects and handlers; an interrupt when
+%% %% invoked is like the invocation of a command, and an interrupt handler is like an
+%% %% effect handler.
+%% Interrupts and interrupt handlers can be seen as a less expressive version of
+%% effects and effect handlers; an interrupt handler describes how to behave on
+%% receipt of an interrupt, but it does not get access to the continuation of the
+%% caller.
+
+%% Interrupts and interrupt handlers have one particularly compelling feature; when
+%% we invoke an interrupt (in the case of synchronous effects, this is just
+%% invoking a command), we can carry on computing the rest of the code whilst we
+%% wait for a response. This is a stark difference to normal effects, where the
+%% rest of the computation is blocked whilst we wait for an answer. The programmer
+%% can then subsequently choose to await the response from interrupt, which blocks
+%% computation until the interrupt handler has been fulfilled.
+
+%% Unlike \aeff, our system does not track the use of asychronous effects in the
+%% type system. It does, however, track the traditional effects that are permitted
+%% in promises.
+
+
+%% \paragraph*{}
+
+%% \aeff's interrupt handlers are manifested in Frank through the \code{Promise}
+%% interface. All of the keywords used in \aeff~are just operations of the
+%% \code{Promise} interface, with the \code{promise} operation being a \emph{scoped}
+%% operation (\cite{pirog2018syntax}).
+
+%% %% \begin{lstlisting}
+%% %% interface Promise <@\greytext{[E]}@> =
+%% %%       promise R : Prom R <@\greytext{[E | Promise[E|], RefState, Yield]}@>
+%% %%                -> Pid R  <@\greytext{[E | Promise[E|], RefState, Yield]}@>
+%% %%     | signal : Sig -> Unit
+%% %%     | await R : Pid R <@\greytext{[E | Promise[E|], RefState, Yield]}@> -> R
+
+%% %% data Prom R <@\greytext{[E]}@> = prom {Sig -> Maybe {<@\greytext{[E|]}@>R}}
+
+%% %% data Pid X = pid (Ref (PromiseStatus X))
+
+%% %% data PromiseStatus X = empty | done X | resume {X -> Unit}
+%% %% \end{lstlisting}
 
 %% \begin{lstlisting}
-%% interface Promise <@\greytext{[E]}@> =
-%%       promise R : Prom R <@\greytext{[E | Promise[E|], RefState, Yield]}@>
-%%                -> Pid R  <@\greytext{[E | Promise[E|], RefState, Yield]}@>
+%% interface Promise =
+%%       promise R : Prom R <@\greytext{[Promise, RefState, Yield]}@>
+%%                -> Pid R  <@\greytext{[Promise, RefState, Yield]}@>
 %%     | signal : Sig -> Unit
-%%     | await R : Pid R <@\greytext{[E | Promise[E|], RefState, Yield]}@> -> R
+%%     | await R : Pid R <@\greytext{[Promise, RefState, Yield]}@> -> R
 
 %% data Prom R <@\greytext{[E]}@> = prom {Sig -> Maybe {<@\greytext{[E|]}@>R}}
 
 %% data Pid X = pid (Ref (PromiseStatus X))
 
-%% data PromiseStatus X = empty | done X | resume {X -> Unit}
+%% data PromiseStatus X = waiting | done X | resume {X -> Unit}
 %% \end{lstlisting}
 
-\begin{lstlisting}
-interface Promise =
-      promise R : Prom R <@\greytext{[Promise, RefState, Yield]}@>
-               -> Pid R  <@\greytext{[Promise, RefState, Yield]}@>
-    | signal : Sig -> Unit
-    | await R : Pid R <@\greytext{[Promise, RefState, Yield]}@> -> R
+%% \noindent The \code{promise R} command is a polymorphic command which takes a
+%% function of type \code{Sig -> Maybe \{[E|] R\}}. This function is an interrupt
+%% handler; it dictates what to do on receipt of an interrupt, which is a thing of
+%% type \code{Sig}. The return type of the interrupt handler is \code{Maybe \{[E|]
+%%   R\}}; this is because the programmer has the chance to return \code{nothing},
+%% which will mean the promise goes unfulfilled and waits for another message. The
+%% programmer would want to do this on receipt of other types of message, or if a
+%% certain condition regarding the interrupt is not fulfilled\footnote{Interrupt
+%%   handlers which put conditions on the incoming interrupts are called
+%%   \emph{guarded} interrupt handlers.}. An
+%% interrupt handler corresponding to an asynchronous division could be;
 
-data Prom R <@\greytext{[E]}@> = prom {Sig -> Maybe {<@\greytext{[E|]}@>R}}
+%% \begin{lstlisting}
+%%   div : {Sig -> Maybe {[Promise] Unit}}
+%%   div (ask n d) = if (n > 0)
+%%                      {just {signal (response (n / d))}}
+%%                      {nohing}
+%%   div _ = nothing
+%% \end{lstlisting}
 
-data Pid X = pid (Ref (PromiseStatus X))
+%% \noindent where we don't want to fire if the denominator is 0. We call the thunk
+%% \code{signal (response (n / d))} the \emph{body} of the interrupt handler. We
+%% say that an interrupt handler \emph{fires} if an interrupt is received that
+%% results in a non-\code{nothing} value. Observe that whilst we can perform some
+%% computation when deciding whether or not to fire based on an interrupt, the type
+%% of \code{Prom R} restricts us so that we cannot perform any effects whilst
+%% deciding; we may only perform effects in the body of the promise.
 
-data PromiseStatus X = waiting | done X | resume {X -> Unit}
-\end{lstlisting}
+%% Once handled, \code{promise R} operation returns a \code{Pid R}. This contains
+%% information about the status of the promise; it is either empty, to signify the
+%% promise is unfulfilled, or it holds the result of the promise, or it holds a
+%% resumption that is automatically invoked when the promise is finished.
+%% Importantly, the caller should not look inside the \code{Pid} cell and inspect
+%% the value; the caller should only be able to \code{await} it and no more.
+%% Ideally \code{Pid} should be an abstract type.
 
-\noindent The \code{promise R} command is a polymorphic command which takes a
-function of type \code{Sig -> Maybe \{[E|] R\}}. This function is an interrupt
-handler; it dictates what to do on receipt of an interrupt, which is a thing of
-type \code{Sig}. The return type of the interrupt handler is \code{Maybe \{[E|]
-  R\}}; this is because the programmer has the chance to return \code{nothing},
-which will mean the promise goes unfulfilled and waits for another message. The
-programmer would want to do this on receipt of other types of message, or if a
-certain condition regarding the interrupt is not fulfilled\footnote{Interrupt
-  handlers which put conditions on the incoming interrupts are called
-  \emph{guarded} interrupt handlers.}. An
-interrupt handler corresponding to an asynchronous division could be;
+%% \code{signal} is a more simple operation. The \code{Sig} data type is the type
+%% of signals that the thread can invoke. These can hold extra data, also called a
+%% \emph{payload}. For instance, if we had a program running remote function calls,
+%% we might have \code{Sig = call ArgsType | result ResultType}; the payloads are
+%% respectively of types \code{ArgsType} and \code{ResultType}. The handler for
+%% \code{Promise} will then send the signals to each other thread, possibly
+%% executing the interrupt handler if needs be.
 
-\begin{lstlisting}
-  div : {Sig -> Maybe {[Promise] Unit}}
-  div (ask n d) = if (n > 0)
-                     {just {signal (response (n / d))}}
-                     {nohing}
-  div _ = nothing
-\end{lstlisting}
+%% \code{await} takes a \code{Pid R} and returns a value of type \code{R}. This
+%% \code{R} is the returned value of the promise. \code{await} will block until the
+%% promise it awaits has been fulfilled; we come on to how it does so later.
 
-\noindent where we don't want to fire if the denominator is 0. We call the thunk
-\code{signal (response (n / d))} the \emph{body} of the interrupt handler. We
-say that an interrupt handler \emph{fires} if an interrupt is received that
-results in a non-\code{nothing} value. Observe that whilst we can perform some
-computation when deciding whether or not to fire based on an interrupt, the type
-of \code{Prom R} restricts us so that we cannot perform any effects whilst
-deciding; we may only perform effects in the body of the promise.
+%% \paragraph*{Effect Typing}
 
-Once handled, \code{promise R} operation returns a \code{Pid R}. This contains
-information about the status of the promise; it is either empty, to signify the
-promise is unfulfilled, or it holds the result of the promise, or it holds a
-resumption that is automatically invoked when the promise is finished.
-Importantly, the caller should not look inside the \code{Pid} cell and inspect
-the value; the caller should only be able to \code{await} it and no more.
-Ideally \code{Pid} should be an abstract type.
+%% %% We can track and control the effects that promises can perform using Frank's
+%% %% effect type system.
 
-\code{signal} is a more simple operation. The \code{Sig} data type is the type
-of signals that the thread can invoke. These can hold extra data, also called a
-\emph{payload}. For instance, if we had a program running remote function calls,
-we might have \code{Sig = call ArgsType | result ResultType}; the payloads are
-respectively of types \code{ArgsType} and \code{ResultType}. The handler for
-\code{Promise} will then send the signals to each other thread, possibly
-executing the interrupt handler if needs be.
+%% %% For instance, a Frank program of type \code{[Promise
+%% %%     [Console]] X} can install promises that print to the console, a program of
+%% %% type \code{[Promise[Console, Web]] X} can install promises that perform web
+%% %% requests and print to the console, etc.
 
-\code{await} takes a \code{Pid R} and returns a value of type \code{R}. This
-\code{R} is the returned value of the promise. \code{await} will block until the
-promise it awaits has been fulfilled; we come on to how it does so later.
+%% %% Note however that the effect typing is slightly complicated in the definition of the
+%% %% interface; a type of \code{Promise [Console]} means that the installed promise
+%% %% can really perform the effects \code{[Promise[Console], Console, RefState,
+%% %%     Yield]}. This is expressed by the \code{[E | Promise[E|], RefState, Yield]}
+%% %% part of the \code{promise R} definition. A recursive type is needed as the
+%% %% promises can themselves invoke other promises.
 
-\paragraph*{Effect Typing}
+%% %% \todo{Flesh this out, rewrite it}
 
 %% We can track and control the effects that promises can perform using Frank's
-%% effect type system.
+%% effect type system. Recall that Frank effect types implicitly add effect type
+%% variables to effect type declarations (as discussed in
+%% Section~\ref{sec:effects}); thus the type \code{[Promise, RefState, Yield]}
+%% desugars to \code{[E | Promise [E|], RefState, Yield]}. Thus a Frank function
+%% with ability \code{[Promise [Console]]} can install promises that use the
+%% effects in the interface \code{[Promise [Console], Console, RefState, Yield]}.
+%% We use a recursive type so that promises can themselves install other promises.
+%% \code{RefState} and \code{Yield} are explicitly added to the ability as a
+%% convenience, as every promise requires it in their ability for reasons that
+%% become clear later.
 
-%% For instance, a Frank program of type \code{[Promise
-%%     [Console]] X} can install promises that print to the console, a program of
-%% type \code{[Promise[Console, Web]] X} can install promises that perform web
-%% requests and print to the console, etc.
+%% \paragraph*{Threads}
 
-%% Note however that the effect typing is slightly complicated in the definition of the
-%% interface; a type of \code{Promise [Console]} means that the installed promise
-%% can really perform the effects \code{[Promise[Console], Console, RefState,
-%%     Yield]}. This is expressed by the \code{[E | Promise[E|], RefState, Yield]}
-%% part of the \code{promise R} definition. A recursive type is needed as the
-%% promises can themselves invoke other promises.
+%% %% To run several threads in parallel, we need to maintain a collection of thread
+%% %% states. When we stop executing a thread we suspend it, storing the continuation,
+%% %% and start executing a new one, in the same style as Section
+%% %% \ref{sec:concurrency}. We also need to store the promises that each thread has
+%% %% installed. These are stored as a stack to maintain the order of installation.
+%% %% Installing a promise is as straightforward as pushing it onto the corresponding
+%% %% thread's promise stack.
 
-%% \todo{Flesh this out, rewrite it}
+%% We maintain a collection of thread states, being the computation thus far and
+%% the promises that each thread has installed.
+%% %
+%% This collection is realised in Frank as the \code{Threads} datatype. It is
+%% essentially just a list of three-tuples\footnote{If Frank had support for type
+%%   aliases, this is exactly what it would be.}, storing the integer ID, suspended
+%% computation, and promise stack of each thread.
 
-We can track and control the effects that promises can perform using Frank's
-effect type system. Recall that Frank effect types implicitly add effect type
-variables to effect type declarations (as discussed in
-Section~\ref{sec:effects}); thus the type \code{[Promise, RefState, Yield]}
-desugars to \code{[E | Promise [E|], RefState, Yield]}. Thus a Frank function
-with ability \code{[Promise [Console]]} can install promises that use the
-effects in the interface \code{[Promise [Console], Console, RefState, Yield]}.
-We use a recursive type so that promises can themselves install other promises.
-\code{RefState} and \code{Yield} are explicitly added to the ability as a
-convenience, as every promise requires it in their ability for reasons that
-become clear later.
+%% \begin{lstlisting}
+%% data Threads =
+%%       tentry Int <@\greytext{-- thread ID}@>
+%%              {<@\greytext{[RefState, Yield]}@> Unit}
+%%              (TStack {Sig -> {<@\greytext{[RefState, Yield]}@> Unit}
+%%                           -> Maybe {<@\greytext{[RefState, Yield]}@> Unit}})
+%%              Threads
+%%     | tnil
+%% \end{lstlisting}
 
-\paragraph*{Threads}
+%% When a thread \yield{}s, we take the continuation and store it in
+%% \code{Threads}; we then take the next one (according to whatever our scheduling
+%% strategy is) and resume the thunk.
 
-%% To run several threads in parallel, we need to maintain a collection of thread
-%% states. When we stop executing a thread we suspend it, storing the continuation,
-%% and start executing a new one, in the same style as Section
-%% \ref{sec:concurrency}. We also need to store the promises that each thread has
-%% installed. These are stored as a stack to maintain the order of installation.
-%% Installing a promise is as straightforward as pushing it onto the corresponding
-%% thread's promise stack.
+%% Observe that installed promises take two arguments. The second
+%% argument is the suspended computation thus far. This is because when handling
+%% signals we take the promise's body, compose it with the suspended computation
+%% and then rehandle it with the \code{Promise} handler. Again, promises can return
+%% \code{nothing}; in this case the promise remains on the stack.
 
-We maintain a collection of thread states, being the computation thus far and
-the promises that each thread has installed.
-%
-This collection is realised in Frank as the \code{Threads} datatype. It is
-essentially just a list of three-tuples\footnote{If Frank had support for type
-  aliases, this is exactly what it would be.}, storing the integer ID, suspended
-computation, and promise stack of each thread.
-
-\begin{lstlisting}
-data Threads =
-      tentry Int <@\greytext{-- thread ID}@>
-             {<@\greytext{[RefState, Yield]}@> Unit}
-             (TStack {Sig -> {<@\greytext{[RefState, Yield]}@> Unit}
-                          -> Maybe {<@\greytext{[RefState, Yield]}@> Unit}})
-             Threads
-    | tnil
-\end{lstlisting}
-
-When a thread \yield{}s, we take the continuation and store it in
-\code{Threads}; we then take the next one (according to whatever our scheduling
-strategy is) and resume the thunk.
-
-Observe that installed promises take two arguments. The second
-argument is the suspended computation thus far. This is because when handling
-signals we take the promise's body, compose it with the suspended computation
-and then rehandle it with the \code{Promise} handler. Again, promises can return
-\code{nothing}; in this case the promise remains on the stack.
-
-%% This is because we often have to
-%% take the body of the promises, compose it with the rest of the interrupted
-%% computation and then rehandle it with the \code{Promise} handler. If the promise
-%% results in \code{Nothing}, we don't remove it from the stack and it remains
-%% installed; recall that returning \code{Nothing} signifies the promise not
-%% firing. If it returns \code{Just th}, we replace the currently stored suspended
-%% computation with \code{th}. We go into further detail about this later.
+%% %% This is because we often have to
+%% %% take the body of the promises, compose it with the rest of the interrupted
+%% %% computation and then rehandle it with the \code{Promise} handler. If the promise
+%% %% results in \code{Nothing}, we don't remove it from the stack and it remains
+%% %% installed; recall that returning \code{Nothing} signifies the promise not
+%% %% firing. If it returns \code{Just th}, we replace the currently stored suspended
+%% %% computation with \code{th}. We go into further detail about this later.
 
 
-\section{Handling Promises}
-\label{sec:handling-promises}
+%% \section{Handling Promises}
+%% \label{sec:handling-promises}
 
-We now introduce the handler for \code{Promise} effects.
+%% We now introduce the handler for \code{Promise} effects.
 
-\begin{lstlisting}
-hdl : {Int -> Ref Threads
-    -> <Promise> Unit
-    -> <@\greytext{[RefState, Yield]}@> Unit}
-\end{lstlisting}
+%% \begin{lstlisting}
+%% hdl : {Int -> Ref Threads
+%%     -> <Promise> Unit
+%%     -> <@\greytext{[RefState, Yield]}@> Unit}
+%% \end{lstlisting}
 
-The first argument is the id of the thread being handled. The second one is a
-reference to the threads structure. These are parametrised by the effects
-performed in the promises, just like the \code{Promise} interface. The third
-argument is the thread itself, which performs \code{Promise} operations.
-%
-Finally, the ability expresses that this function can perform \code{RefState}
-effects; the \code{Yield} interface states that \code{hdl} can be interrupted.
-%% Finally, the return type expresses that this code can perform any of the effects
-%% that the promises perform, plus \code{RefState} effects; the \code{Yield}
-%% encodes that this can be interrupted (as in Chapter~\ref{chap:preemptive-concurrency}).
+%% The first argument is the id of the thread being handled. The second one is a
+%% reference to the threads structure. These are parametrised by the effects
+%% performed in the promises, just like the \code{Promise} interface. The third
+%% argument is the thread itself, which performs \code{Promise} operations.
+%% %
+%% Finally, the ability expresses that this function can perform \code{RefState}
+%% effects; the \code{Yield} interface states that \code{hdl} can be interrupted.
+%% %% Finally, the return type expresses that this code can perform any of the effects
+%% %% that the promises perform, plus \code{RefState} effects; the \code{Yield}
+%% %% encodes that this can be interrupted (as in Chapter~\ref{chap:preemptive-concurrency}).
 
-\paragraph*{Promises}~
-\begin{lstlisting}[numbers=left]
-hdl thId thrs <promise (prom cb) -> k> =
-    let cell = pid (new waiting) in
-    let cbMod = (toWrite cell cb) in
-    let cbMaybe = {sig rest -> case (cbMod sig)
-          { nothing -> nothing
-          | (just susp) ->
-                just { hdl thId thrs (susp!; <@\greytext{<Promise>}@> rest!)} }} in
-    let queued = (addCb thId cbMaybe (read thrs)) in
-    write thrs queued;
-    hdl thId thrs (k cell)
-\end{lstlisting}
+%% \paragraph*{Promises}~
+%% \begin{lstlisting}[numbers=left]
+%% hdl thId thrs <promise (prom cb) -> k> =
+%%     let cell = pid (new waiting) in
+%%     let cbMod = (toWrite cell cb) in
+%%     let cbMaybe = {sig rest -> case (cbMod sig)
+%%           { nothing -> nothing
+%%           | (just susp) ->
+%%                 just { hdl thId thrs (susp!; <@\greytext{<Promise>}@> rest!)} }} in
+%%     let queued = (addCb thId cbMaybe (read thrs)) in
+%%     write thrs queued;
+%%     hdl thId thrs (k cell)
+%% \end{lstlisting}
 
-Above we see the handler for \code{promise}. Line 2 creates a new reference cell
-for the promise id; this is initialised to \code{waiting}, as nothing has been
-performed yet. Line 3 calls the utility function \code{toWrite}, shown below.
+%% Above we see the handler for \code{promise}. Line 2 creates a new reference cell
+%% for the promise id; this is initialised to \code{waiting}, as nothing has been
+%% performed yet. Line 3 calls the utility function \code{toWrite}, shown below.
 
-%% This takes a
-%% promise of type \code{Sig -> \{R\}} and converts it to type \code{S ->
-%%   \{[RefState]Unit\}}; it modifies it to write its value to the corresponding
-%% \code{Pid} cell once finished.
+%% %% This takes a
+%% %% promise of type \code{Sig -> \{R\}} and converts it to type \code{S ->
+%% %%   \{[RefState]Unit\}}; it modifies it to write its value to the corresponding
+%% %% \code{Pid} cell once finished.
 
-\begin{lstlisting}
-toWrite : Pid R <@\greytext{[RefState]}@>
-          -> {S -> (Maybe {<@\greytext{[RefState]}@> R})}
-          -> {S -> (Maybe {<@\greytext{[RefState]}@> Unit})}
-toWrite (pid cell) cb =
-    {x -> case (cb x)
-         { nothing -> nothing
-         | (just susp) ->
-             just {case (read cell)
-                      { empty -> write cell (done susp!)
-                      | (resume resumption) -> resumption susp!}} }}
-\end{lstlisting}
+%% \begin{lstlisting}
+%% toWrite : Pid R <@\greytext{[RefState]}@>
+%%           -> {S -> (Maybe {<@\greytext{[RefState]}@> R})}
+%%           -> {S -> (Maybe {<@\greytext{[RefState]}@> Unit})}
+%% toWrite (pid cell) cb =
+%%     {x -> case (cb x)
+%%          { nothing -> nothing
+%%          | (just susp) ->
+%%              just {case (read cell)
+%%                       { empty -> write cell (done susp!)
+%%                       | (resume resumption) -> resumption susp!}} }}
+%% \end{lstlisting}
 
-This takes a promise of type \code{Sig -> Maybe \{R\}} and converts it to type
-\code{Sig -> Maybe \{Unit\}}. \code{toWrite} modifies the given callback so
-once it has been executed it looks inside the given \code{Pid} cell. If the cell
-is \code{empty}, we just write the return value of the promise body in
-the cell. If there is a resumption, we resume it with the value of the promise
-body.
+%% This takes a promise of type \code{Sig -> Maybe \{R\}} and converts it to type
+%% \code{Sig -> Maybe \{Unit\}}. \code{toWrite} modifies the given callback so
+%% once it has been executed it looks inside the given \code{Pid} cell. If the cell
+%% is \code{empty}, we just write the return value of the promise body in
+%% the cell. If there is a resumption, we resume it with the value of the promise
+%% body.
 
-%
-%Having all promises as the same type makes storing them in
-%% one data structure possible.
-%
-%% In lines 4-7 we convert our promise to one that
-%% takes into account the computation after we've run the promise as well. This is
-%% essential to get blocking via \code{await} to work properly when running a
-%% promise, which is important for pre-emptive concurrency and other applications.
-%% \todo{Go into more depth about this}.
+%% %
+%% %Having all promises as the same type makes storing them in
+%% %% one data structure possible.
+%% %
+%% %% In lines 4-7 we convert our promise to one that
+%% %% takes into account the computation after we've run the promise as well. This is
+%% %% essential to get blocking via \code{await} to work properly when running a
+%% %% promise, which is important for pre-emptive concurrency and other applications.
+%% %% \todo{Go into more depth about this}.
 
-In lines 4-7 we convert the promise to also take the computation it interrupts
-as an argument. The body of the promise is composed with the interrupted
-computation and the whole thing is rehandled by the promise handler. This is
-essential to get blocking when installed from a promise working. For instance,
-we might have a program like \code{thr};
+%% In lines 4-7 we convert the promise to also take the computation it interrupts
+%% as an argument. The body of the promise is composed with the interrupted
+%% computation and the whole thing is rehandled by the promise handler. This is
+%% essential to get blocking when installed from a promise working. For instance,
+%% we might have a program like \code{thr};
 
-\begin{lstlisting}
-thr : {[Promise] Unit}
-thr! = promise (prom {stop -> await (promise (prom {go -> unit}))});
-       otherComputation!
-\end{lstlisting}
+%% \begin{lstlisting}
+%% thr : {[Promise] Unit}
+%% thr! = promise (prom {stop -> await (promise (prom {go -> unit}))});
+%%        otherComputation!
+%% \end{lstlisting}
 
-The desired behaviour is to start blocking when a \code{stop} message comes in,
-and then start running again once a \code{go} message is received. If we were
-just to handle rehandle the promise body separate from the interrupted
-computation, \code{otherComputation} would not get blocked.
+%% The desired behaviour is to start blocking when a \code{stop} message comes in,
+%% and then start running again once a \code{go} message is received. If we were
+%% just to handle rehandle the promise body separate from the interrupted
+%% computation, \code{otherComputation} would not get blocked.
 
-Finally in lines 8-10 we add the new promise to the stack of promises installed
-for this thread and resume the computation with the cell we created earlier.
+%% Finally in lines 8-10 we add the new promise to the stack of promises installed
+%% for this thread and resume the computation with the cell we created earlier.
 
-\paragraph*{Signals} ~
+%% \paragraph*{Signals} ~
 
-\begin{lstlisting}
-hdl thId thrs <signal sig -> thr> =
-    let newThrs = runThreads sig (read thrs) in
-    write thrs newThrs;
-    hdl thId thrs (thr unit)
-\end{lstlisting}
+%% \begin{lstlisting}
+%% hdl thId thrs <signal sig -> thr> =
+%%     let newThrs = runThreads sig (read thrs) in
+%%     write thrs newThrs;
+%%     hdl thId thrs (thr unit)
+%% \end{lstlisting}
 
-When a thread we're running invokes a signal, we inform the other threads of
-this using \code{runThreads}. This function then calls the \code{runThread}
-function on every thread;
+%% When a thread we're running invokes a signal, we inform the other threads of
+%% this using \code{runThreads}. This function then calls the \code{runThread}
+%% function on every thread;
 
-%% When a signal comes in, we need to try and execute \emph{all} of the installed
-%% promises, for every thread. To do this we use the \code{runThreads} function,
-%% which calls the below function for all threads;
+%% %% When a signal comes in, we need to try and execute \emph{all} of the installed
+%% %% promises, for every thread. To do this we use the \code{runThreads} function,
+%% %% which calls the below function for all threads;
 
-\begin{lstlisting}
-runThread sig (trio susp cbs skipped) =
-  case (dequeue cbs)
-    { nothing -> trio susp cbs skipped
-    | (just (pair cb cbs)) ->
-      case (cb sig susp)
-        { nothing -> runThread sig (trio susp cbs (enqueue cb skipped))
-        | (just res) -> runThread sig (trio res cbs skipped)}}
-\end{lstlisting}
+%% \begin{lstlisting}
+%% runThread sig (trio susp cbs skipped) =
+%%   case (dequeue cbs)
+%%     { nothing -> trio susp cbs skipped
+%%     | (just (pair cb cbs)) ->
+%%       case (cb sig susp)
+%%         { nothing -> runThread sig (trio susp cbs (enqueue cb skipped))
+%%         | (just res) -> runThread sig (trio res cbs skipped)}}
+%% \end{lstlisting}
 
-\noindent We first check to see if there are any installed promises remaining.
-If there is, we run the promise with the signal supplied. We supply the callback
-with the incoming signal and the thunked computation thus far. If the callback
-returns \code{nothing} we reinstall it. If the callback gives us an updated
-thunk, we continue to run the rest of the promises, with this thunk the new
-computation to be extended.
+%% \noindent We first check to see if there are any installed promises remaining.
+%% If there is, we run the promise with the signal supplied. We supply the callback
+%% with the incoming signal and the thunked computation thus far. If the callback
+%% returns \code{nothing} we reinstall it. If the callback gives us an updated
+%% thunk, we continue to run the rest of the promises, with this thunk the new
+%% computation to be extended.
 
-At no point in this process are these thunks ever actually invoked; we are
-simply mutating suspended computations. When a signal triggers a promise, the
-body of the promise does not get performed until the thread is run by the
-scheduler. In \aeff, when a signal is received by an interrupt handler there is
-some nondeterminism present; we can either trigger the interrupt handler or
-continue computing underneath the handler. In our system this choice is not
-available; the interrupt handler is always triggered first, and we process the
-body of it immediately.
-
-
-%% Recall that the type of the callbacks is \code{Sig -> \{Unit\} -> \{R\}}; we
-%% have to also supply the callbacks with the thunked computation so far. Again,
-%% this is important to correctly implement blocking. If the callback returns
-%% \code{nothing} we do not evaluate it and we reinstall it afterwards, by putting
-%% it onto the ``skipped'' stack.
-
-Once promise execution is finished we update the state of \code{thrs} and resume
-handling, restarting the continuation with \code{unit} immediately.
-This is unlike traditional effect invocations, where we would block until a
-result is produced.
+%% At no point in this process are these thunks ever actually invoked; we are
+%% simply mutating suspended computations. When a signal triggers a promise, the
+%% body of the promise does not get performed until the thread is run by the
+%% scheduler. In \aeff, when a signal is received by an interrupt handler there is
+%% some nondeterminism present; we can either trigger the interrupt handler or
+%% continue computing underneath the handler. In our system this choice is not
+%% available; the interrupt handler is always triggered first, and we process the
+%% body of it immediately.
 
 
-\paragraph*{Await}~
-\begin{lstlisting}
-hdl thId thrs <await cell -> thr> =
-    case (readPid cell)
-        { (done x) ->
-            hdl thId thrs (thr x)
-        | waiting ->
-            writePid cell (resume thr);
-            hdl thId thrs unit }
-\end{lstlisting}
+%% %% Recall that the type of the callbacks is \code{Sig -> \{Unit\} -> \{R\}}; we
+%% %% have to also supply the callbacks with the thunked computation so far. Again,
+%% %% this is important to correctly implement blocking. If the callback returns
+%% %% \code{nothing} we do not evaluate it and we reinstall it afterwards, by putting
+%% %% it onto the ``skipped'' stack.
 
-Handling \code{await} is surprisingly the simplest of the lot. Recall that
-\code{await} takes a promise id cell \code{Pid R} and returns a value of type
-\code{R}. The handler looks inside this cell; if there is a finished value there
-already (\code{done x}) it resumes the continuation with this value straight
-away. If the promise has not yet completed, we then write the resumption (which
-is of type \code{\{R -> Unit\}}) to the cell. The function \code{toWrite} used
-when installing promises changes the original promise to resume the continuation
-stored in \code{Pid}, if there is one present.
+%% Once promise execution is finished we update the state of \code{thrs} and resume
+%% handling, restarting the continuation with \code{unit} immediately.
+%% This is unlike traditional effect invocations, where we would block until a
+%% result is produced.
 
-\section{Multithreading}
 
-%% We now show how we can easily introduce multithreading to our system. Observe
-%% that we are yet to have a handler for any \code{yield} commands. We can handle
-%% them, yielding co-operative concurrency in the same style as
-%% Section~\ref{sec:concurrency}, like so;
+%% \paragraph*{Await}~
+%% \begin{lstlisting}
+%% hdl thId thrs <await cell -> thr> =
+%%     case (readPid cell)
+%%         { (done x) ->
+%%             hdl thId thrs (thr x)
+%%         | waiting ->
+%%             writePid cell (resume thr);
+%%             hdl thId thrs unit }
+%% \end{lstlisting}
 
-Multithreading then fits into our system in a natural way, via the
-\code{schedule} handler.
+%% Handling \code{await} is surprisingly the simplest of the lot. Recall that
+%% \code{await} takes a promise id cell \code{Pid R} and returns a value of type
+%% \code{R}. The handler looks inside this cell; if there is a finished value there
+%% already (\code{done x}) it resumes the continuation with this value straight
+%% away. If the promise has not yet completed, we then write the resumption (which
+%% is of type \code{\{R -> Unit\}}) to the cell. The function \code{toWrite} used
+%% when installing promises changes the original promise to resume the continuation
+%% stored in \code{Pid}, if there is one present.
 
-\begin{lstlisting}[numbers=left]
-schedule : {<Yield> Unit -> Int -> Ref Threads -> <@\greytext{[RefState]}@>Unit}
-schedule <yield -> k> cur thrs =
-    let next = nextId cur (keys (read thrs)) in
-    let newThk = lookupThk next (read thrs) in
-    let newThrs = writeThk cur {k unit} (read thrs) in
-    write thrs newThrs;
-    schedule newThk! next thrs
+%% \section{Multithreading}
 
-schedule unit cur thrs = scheduleT yield! cur thrs
-\end{lstlisting}
+%% %% We now show how we can easily introduce multithreading to our system. Observe
+%% %% that we are yet to have a handler for any \code{yield} commands. We can handle
+%% %% them, yielding co-operative concurrency in the same style as
+%% %% Section~\ref{sec:concurrency}, like so;
 
-\noindent Recall that the threads are stored with a thread id, an integer. We
-use these in our simple scheduling strategy, where we just cycle through all ids
-in ascending order. Line 3 finds the id of the next thread as per this strategy,
-and line 4 looks up the thunk from \code{Threads}. Line 5 then writes the
-current thread's thunk to \code{Threads}. Line 6 writes the updated version of
-\code{Threads} and line 7 starts executing the next continuation. Line 9 states
-that if a thread's value is unit we just force a yield. This is useful if a
-thread is blocked as we will instantly stop processing it and start the next
-one.
+%% Multithreading then fits into our system in a natural way, via the
+%% \code{schedule} handler.
 
-%% One disadvantage of our approach is that we are still tied into using
-%% \code{Threads}, even though multithreading seems to be orthogonal to handling
-%% promises; it would be nicer to use a generic queue data structure, or even just
-%% a multihandler like in Section~\ref{sec:concurrency}. The problem
-%% is that the stored thunks get modified whilst other threads work, so we need to
-%% keep an up-to-date version of the latest ones.
+%% \begin{lstlisting}[numbers=left]
+%% schedule : {<Yield> Unit -> Int -> Ref Threads -> <@\greytext{[RefState]}@>Unit}
+%% schedule <yield -> k> cur thrs =
+%%     let next = nextId cur (keys (read thrs)) in
+%%     let newThk = lookupThk next (read thrs) in
+%%     let newThrs = writeThk cur {k unit} (read thrs) in
+%%     write thrs newThrs;
+%%     schedule newThk! next thrs
 
-%% \section{Running Processes}
+%% schedule unit cur thrs = scheduleT yield! cur thrs
+%% \end{lstlisting}
+
+%% \noindent Recall that the threads are stored with a thread id, an integer. We
+%% use these in our simple scheduling strategy, where we just cycle through all ids
+%% in ascending order. Line 3 finds the id of the next thread as per this strategy,
+%% and line 4 looks up the thunk from \code{Threads}. Line 5 then writes the
+%% current thread's thunk to \code{Threads}. Line 6 writes the updated version of
+%% \code{Threads} and line 7 starts executing the next continuation. Line 9 states
+%% that if a thread's value is unit we just force a yield. This is useful if a
+%% thread is blocked as we will instantly stop processing it and start the next
+%% one.
+
+%% %% One disadvantage of our approach is that we are still tied into using
+%% %% \code{Threads}, even though multithreading seems to be orthogonal to handling
+%% %% promises; it would be nicer to use a generic queue data structure, or even just
+%% %% a multihandler like in Section~\ref{sec:concurrency}. The problem
+%% %% is that the stored thunks get modified whilst other threads work, so we need to
+%% %% keep an up-to-date version of the latest ones.
+
+%% %% \section{Running Processes}
 
 \chapter{Examples}
 \label{chap:examples}
