@@ -502,30 +502,48 @@ the rest of the computation pauses whilst the effect handler performs the
 requisite computation and then resumes the original caller.
 %
 For many effects, this blocking behaviour is not a problem; the handler usually
-returns quickly, and the user does not notice anything. However, not every
-possible computational effect behaves like this. Consider an effect involving a
-query to a remote database. We might not want to block the rest of the
-computation whilst we perform this, as the query might take a long time; this
-case is even stronger if we do not immediately want the data. To support this
-kind of behaviour, we need to be able to invoke and handle effects in an
-asynchronous, non-blocking manner.
+returns quickly, and the user notices no delay. However, not every possible
+computational effect behaves like this. Consider an effect involving a query to
+a remote database. We might not want to block the rest of the computation whilst
+we perform this, as the query might take a long time; this case is even stronger
+if we do not immediately want the data. To support this kind of behaviour, we
+need to be able to invoke and handle effects in an asynchronous, non-blocking
+manner.
 
 In this project we investigate the implementation and applications of
-asynchronous effects. Our lens for this is the language
+asynchronous effect handling. Our lens for this is the language
 Frank~(\cite{convent2020doo}), a functional programming designed with effect
 handlers at its core. We follow the design
 of~\aeff~(\cite{ahman2020asynchronous}), a small programming language designed
-around asynchronous effects but supporting little else. We show how, with a
-small change to the semantics of Frank, we can recreate the asynchronous effect
-handling behaviour of~\aeff~whilst enjoying the benefits of traditional effect
+around asynchronous effects but supporting little else.
+%
+% We show how, with a small change to the semantics of Frank, we can recreate the
+% asynchronous effect handling behaviour of~\aeff~whilst enjoying the benefits of
+% traditional effect handlers.
+We show how by making a simple change to the semantics of Frank, in order to
+yield pre-emptible threads, we can recreate the asynchronous effect handling
+behaviour of \aeff~whilst still enjoying the benefits of traditional effect
 handlers.
 
-Frank is a well-suited language for an asynchronous effects library, especially
-because of the fine-grained control over suspended computations, making it very
-easy to treat code as data. Despite this, our approach does not use any specific
+\todo{Last paragraph could be fixed}
+
+Frank is well-suited to implement an asynchronous effects library. The fine-grained control over suspended computations makes it easy to treat code as data, and
+\todo{Something else after the end}
+% Frank is a well-suited language for an asynchronous effects library, especially
+% because of the fine-grained control over suspended computations, making it very
+% easy to treat code as data.
+%
+Despite this, our approach does not use any specific
 Frank features; furthermore, the changes made to the semantics of Frank are
 easily recreateable. It is our hope that these methods could be recreated in
-another language equipped with first-class effect handlers. Effect handlers have
+another language equipped with first-class effect handlers.
+
+
+\todo{Rewrite. Want to say that the change to the semantics is simple enough and
+  the implementation simple enough that there should be no problems recreating
+  our work in another language.}
+
+Effect handlers have
 already proven to make complicated control flow easy to implement
 (\textbf{refs}), and our work further cements this viewpoint.
 
@@ -574,19 +592,24 @@ received are predefined. This problem is solved by
 \aeff~(\cite{ahman2020asynchronous}), a small language built around asynchronous
 effect handling. \citeauthor{ahman2020asynchronous} approach the problem of
 asynchrony from a different perspective, by decoupling the invocation of an
-effect from its resumption with the handled value. When an effect is invoked the
-rest of the computation is not blocked whilst the handler is performed. Programs
-may then install interrupt handlers that dictate how to act on receipt of a
-particular interrupt. To recover synchronous behaviour, these interrupt handlers
-can be \textsf{await}ed; this will block the rest of the code until the
-interrupt is received.
+effect from its handling and resumption with the handled value. When an effect
+is invoked the rest of the computation is not blocked whilst the handler is
+performed. Programs then install interrupt handlers that dictate how to act on
+receipt of a particular interrupt. To recover synchronous behaviour, these
+interrupt handlers can be \textsf{await}ed; this will block the rest of the code
+until the interrupt is received.
+
+\citeauthor{ahman2020asynchronous} then show how the simple building blocks of
+interrupt handlers can be used to build common constructs for asynchronous
+programming, such as cancellable remote function calls and a pre-emptive
+scheduler.
 
 \todo{Section on the expressivity?}
 
-We design our system based on \aeff, embedding its behaviour into Frank. We show
-that we can easily recover the behaviour of \aeff~when equipped with effect
-handlers, and show that asynchronous effects can still be used in conjunction
-with traditional, synchronous effects.
+% We design our system based on \aeff, embedding its behaviour into Frank. We show
+% that we can easily recover the behaviour of \aeff~when equipped with effect
+% handlers, and show that asynchronous effects can still be used in conjunction
+% with traditional, synchronous effects.
 
 %
 %The most prominent work is \aeff~(\cite{ahman2020asynchronous}),
@@ -621,7 +644,7 @@ the changes to the semantics for the following chapter.
 
 In Chapter~\ref{chap:preemptive-concurrency} we show how by making a small
 change to the semantics of Frank we yield pre-emptible threads; that is, we can
-interrupt a function in the same 'co-operative' style but without co-operation
+interrupt a function in the same co-operative style but without co-operation.
 
 In Chapter~\ref{chap:implementation} we describe the implementation of our
 asynchronous effect handling library in Frank. In Chapter~\ref{chap:examples} we
@@ -630,28 +653,38 @@ with the changes made in Chapter~\ref{chap:preemptive-concurrency}.
 
 In Chapter~\ref{chap:conclusion} we conclude.
 
-
-
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 \chapter{Programming in Frank}
 \label{chap:programming-in-frank}
 
-Frank is a functional programming language, designed with the use of algebraic
-effects at its heart. As such, Frank has an effect type system used to track
-which effects a computation may use.
+Frank is a typed functional programming language, designed around the
+definition, control and handling of algebraic effects. As such, Frank has an
+effect type system used to track which effects a computation may use.
 
-Frank offers very fine-grained control over computations. It clearly
-distinguishes between computation and value, and offers \emph{multihandlers} to
-carefully control when computations are evaluated. This combined with effect
-handling provides a very rich foundation for expressing complex control
-structures.
+\todo{Extend this a bit - talk about ambient ability, computation vs. value, etc}
+
+% Frank offers very fine-grained control over computations. It clearly
+% distinguishes between computation and value, and offers \emph{multihandlers} to
+% carefully control when computations are evaluated. This combined with effect
+% handling provides a very rich foundation for expressing complex control
+% structures.
 
 In this chapter we introduce Frank, and show why it is so well-suited to our
 task. We assume some familiarity with typed functional programming, and skip
 over some common features of Frank --- algebraic data types, pattern matching,
-etc. --- so we can spend more time with the novel, interesting parts.
+etc. --- so we can spend more time with the novel, interesting parts. We also
+skip some novel features of Frank, such as
+adaptors~(\cite{convent2017enhancing}), as they are not essential for
+understanding the work of this project.
 
 \section{Types, Values and Operators}
 
@@ -662,15 +695,17 @@ used to describe where certain effects can be performed and handled. Value types
 
 A computation type
 %
-\lstinline[mathescape]!X$_1$ -> ... -> X$_m$ -> [I$_1$, ..., I$_n$]Y!
+\lstinline[mathescape]!{X$_1$ -> $\ldots$ -> X$_m$ -> [I$_1$, $\ldots$, I$_n$] Y}!
 %
 %% This type expresses that the operator can handle some effect in the first
 %% argument and then performs some other effects as a result, returning a value of
 %% type \code{Y}.
-expresses that the operator takes $m$ arguments and return a value of type
+describes an operator that takes $m$ arguments and returns a value of type
 \code{Y}. The return type also expresses the \emph{ability} the computation
 needs access to, being a list of $n$ \emph{interface} instances. An interface is
 a collection of \emph{commands} which are offered to the computation.
+
+\todo{Go more into depth about 'abilities'?}
 
 %% Frank then specialises effect handling to traditional function application; a
 %% function is the special case of an operator that handles no arguments. We see
@@ -678,22 +713,54 @@ a collection of \emph{commands} which are offered to the computation.
 %% general operator type where no effects are handled or performed. Throughout this
 %% thesis, we call
 
-Thunks are then the special case of an $n$-ary function that takes 0 arguments.
-We can evaluate them --- performing the suspended computation --- with the 0-ary
-sequence of arguments, denoted \code{!}. Computations are suspended by wrapping
-them in braces. This gives us fine-grained control over when we want to evaluate
-computations. For instance, we might want the sequential composition operator
-\code{snd} (also commonly known as the semicolon operator);
+\emph{Thunks} are the special case of an $n$-ary function that takes 0
+arguments. We can evaluate them --- performing the suspended computation ---
+with the 0-ary sequence of arguments, denoted \code{!}.
+%
+% Computations are suspended by wrapping them in braces.
+The opposite action --- suspending a computation --- is done by surrounding the computation in braces, such that for a suspended computation \code{comp}, \code{\{comp!\}} is the identity.
+%
+This gives us fine-grained control over when we want to evaluate computations.
+
+
+% For instance, we might want the sequential composition operator \code{snd} (also
+% commonly known as the semicolon operator);
+
+% \begin{lstlisting}
+%   snd : {X -> Y -> Y}
+%   snd x y = y
+% \end{lstlisting}
+
+% Frank is a left-to-right call-by-value language; arguments to functions are
+% evaluated from left-to-right, until they become a value. In the case of
+% \code{snd}, \code{x} is first evaluated, then \code{y}, which is finally
+% returned. Compare this to \code{if};
+
+% \begin{lstlisting}
+% if : {Bool -> {X} -> {X} -> X}
+% if true  yes no = yes!
+% if false yes no = no!
+% \end{lstlisting}
+
+% \noindent The branches are given as thunks, where a single thunk is evaluated
+% depending on the condition. If we did not take this approach both cases would be
+% evaluated, which is clearly not the intended semantics of \code{if}. Frank's
+% distinction between computation and value make controlling evaluation simple and
+% pleasing.
+
+Consider the operator \code{badIf} below;
 
 \begin{lstlisting}
-  snd : {X -> Y -> Y}
-  snd x y = y
+badIf : {Bool -> X -> X -> X}
+badIf true  yes no = yes
+badIf false yes no = no
 \end{lstlisting}
 
-Frank is a left-to-right call-by-value language; arguments to functions are
-evaluated from left-to-right, until they become a value. In the case of
-\code{snd}, \code{x} is first evaluated, then \code{y}, which is finally
-returned. Compare this to \code{if};
+\noindent Frank is a \emph{left-to-right}, \emph{call-by-value} language; all
+arguments to operators are evaluated from left-to-right until they become a
+value. As such, in the case of \code{badIf}, both of the branches will be
+evaluated before the result of one of them is returned. We can recover the
+correct semantics for \code{if} by giving the branches as thunks;
 
 \begin{lstlisting}
 if : {Bool -> {X} -> {X} -> X}
@@ -701,11 +768,10 @@ if true  yes no = yes!
 if false yes no = no!
 \end{lstlisting}
 
-\noindent The branches are given as thunks, where a single thunk is evaluated
-depending on the condition. If we did not take this approach both cases would be
-evaluated, which is clearly not the intended semantics of \code{if}. Frank's
-distinction between computation and value make controlling evaluation simple and
-pleasing.
+\noindent Here a single thunk is evaluated depending on the value of the
+condition. Frank's distinction between computation and value make controlling
+evaluation simple and pleasing.
+
 
 %% \todo{Example --- maybe fire missiles one?}
 
@@ -2457,20 +2523,44 @@ discuss later in this section.
 
 \section{Communication}
 
-Consider a program \feed which lets the user scroll through an seemingly infinite feed
-of information (example due to \citeauthor{ahman2020asynchronous}). The program
-cycles through its current cache of data as the user requests more; the program
-simulates being infinite by making a request for another cache of data whenever
-the user is nearly at the end of the current cache.
+Consider a program \feed which lets the user scroll through an seemingly
+infinite feed of information (example due to
+\citeauthor{ahman2020asynchronous}). The program displays each item in the cache
+of data as the user scrolls; the program simulates being infinite by
+making a request for another cache of data whenever the user is nearly at the
+end of the current cache. In this way, the user never notices the feed pausing
+to download more data.
 
-How is this implemented with asynchronous effects? We have a number of operations
-here; \code{request} for when \feed~needs more information, \code{display d} to
-display data \code{d}, and then the \code{next} operations that \feed~responds
-to. Observe that from the point of view of \feed, \code{request} and
-\code{display} differ to \code{next}; the latter two are operations that
-\feed~performs, whilst \code{next} is an operation \feed~\emph{responds} to. We
-call the latter (outgoing) operations \emph{signals} and the former (incoming)
-opreations \emph{interrupts}.
+Asynchronous effects are particularly useful for writing \emph{multithreaded}
+programs. We may have several other threads in addition to \feed, such as a
+server and a user interface controller.
+
+Using asynchronous effects, threads communicate with one another using
+\emph{signals}, which are analogous to effect invocations. For instance, \feed
+would use a \code{request} signal to ask for more data from the server. Signals
+sent from other threads become \emph{interrupts} from the receiver's point of
+view; for instance, \feed~would receive \code{response} interrupts from the server, containing the new cache of data.
+
+Despite this example of fairly conventional, we remark that each signal need not
+have a corresponding interrupt response and vice versa. For instance, in
+Section~\ref{sec:pre-emptive-scheduling} we implement a pre-emptive scheduler,
+which sends \code{stop} and \code{go} signals without expecting an interrupt as
+a response.
+
+\todo{Talk about potentially having the system intercept signals?}
+
+% \todo{Write with a view to saying that this behaves asychronously; remember that
+%   the user wants to imagine it's asynchronous and that the implementation is
+%   just a kind of specialisation of this}
+
+% How is this implemented with asynchronous effects? We have a number of operations
+% here: \code{request} for when \feed~needs more information, \code{display d} to
+% display data \code{d}, and then the \code{next} operation that \feed~responds
+% to. Observe that from the point of view of \feed, \code{request} and
+% \code{display} differ to \code{next}; the latter two are operations that
+% \feed~performs, whilst \code{next} is an operation \feed~\emph{responds} to. We
+% call the latter (outgoing) operations \emph{signals} and the former (incoming)
+% opreations \emph{interrupts}.
 
 \todo{Maybe highlight that there's not a material difference between sigs and
   interrupts and that it's just a naming thing}.
@@ -2486,10 +2576,12 @@ received.
 \todo{Fix the way we talk about S.}
 %
 The return type of the handler is \code{Maybe \{R\}} as we can choose \emph{not}
-to handle the interrupt if we wish; this could be because it is the wrong type,
-or for some other reason.
-%
-\todo{Again fix ``for some other reason''}.
+to handle the interrupt if we wish; this could be because it is the wrong type
+of signal, or if some other condition regarding the interrupt is not
+fulfilled\footnote{An interrupt handler which inspects the body of the interrupt
+  before executing is called a \emph{guarded} interrupt handler. We see an
+  example of guarded interrupt handling in
+  Section~\ref{sec:pre-emptive-scheduling}.}.
 %
 An example of an interrupt handler is \code{boringFeed};
 
@@ -2509,15 +2601,15 @@ received.
 
 \todo{Maybe get rid of this part.}
 
-Asynchrous effects are useful for writing \emph{multithreaded} programs. The
-program \feed~would be one thread of several; there might for instance be
-another thread which acts as a server and responds to \code{request} interrupts.
-We might then have another one which acts as the user interface and sends
-\code{nextItem} signals and responds to \code{display d} interrupts.
+% Asynchrous effects are useful for writing \emph{multithreaded} programs. The
+% program \feed~would be one thread of several; there might for instance be
+% another thread which acts as a server and responds to \code{request} interrupts.
+% We might then have another one which acts as the user interface and sends
+% \code{nextItem} signals and responds to \code{display d} interrupts.
 
-The decoupling of invoking an operation and handling an operation means that an
-operation can be handled multiple --- or even 0 --- times, across different
-threads.
+% The decoupling of invoking an operation and handling an operation means that an
+% operation can be handled multiple --- or even 0 --- times, across different
+% threads.
 
 
 
@@ -2549,7 +2641,7 @@ commands (shown later in this section).
 the promise has not yet been fulfilled. The second, \code{done x}, expresses
 that the promise has completed and resulted in a value, \code{x}. The third
 option, \code{resume cont}, is used when a promise is awaited. The continuation
-\code{cont} is the continuation offered by the calling cde when the \code{await}
+\code{cont} is the continuation offered by the calling code when the \code{await}
 effect is performed. We see how this is handled later in this section.
 \todo{Maybe go over this?}
 
@@ -3018,6 +3110,7 @@ We show that with our promise library we can implement all of these common
 asynchronous primitives within the language itself.
 
 \section{Pre-emptive Scheduling}
+\label{sec:pre-emptive-scheduling}
 
 %% An essential feature of our asynchronous effects system is that it supports
 %% pre-emptive concurrency; that is, the suspension and resumption of threads
