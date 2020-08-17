@@ -791,11 +791,11 @@ operations (commands), \code{get} and \code{put}. In Frank, this translates to
   interface RandInt = random : Int
 \end{lstlisting}
 
-The type signatures of the operations mean that \code{get} is a 0-ary operation
-which is \emph{resumed} with a value of type \code{X}, and \code{put} takes a
-value of type \code{X} and is resumed with \code{unit}. Computations get access
-to an interface's commands by including them in the \emph{ability} of the
-program. Commands are invoked just as normal functions;
+The interface declaration for \code{State X} expresses that \code{get} is a
+0-ary operation which is \emph{resumed} with a value of type \code{X}, and
+\code{put} takes a value of type \code{X} and is resumed with \code{unit}.
+Computations get access to an interface's commands by including them in the
+\emph{ability} of the program. Commands are invoked just as normal functions;
 
 \begin{lstlisting}
   xplusplus : {[State Int] Unit}
@@ -834,19 +834,19 @@ called an \emph{adjustment}. This expresses that the first argument can perform
 commands in the \code{State S} interface, and that \code{runState} must handle
 these commands if they occur.
 
-\subparagraph*{Computation Patterns}
-The second and third lines specify how we handle \code{get} and \code{put}
-commands. Observe that we use a new type of pattern, called a \emph{computation
-  pattern}; these are made up of a command and some arguments (which are also
-values), plus the continuation of the calling code. The types of arguments and
-the continuation are determined by the interface declaration and the type of the
-handler; for instance, in \code{<get -> k>} the type of \code{k} is \code{\{S ->
-  [State S] X\}}. The continuation can then perform more \code{State S} effects.
-This differs to some other implementations of effect handling languages
-\todo{Add references} where the handlers are \emph{deep}, meaning the
-continuation has been re-handled by the same handler automatically. Frank's
-\emph{shallow} handlers mean we have to explicitly re-handle the continuation,
-but have the benefit of giving more control over how we would like to do so.
+\subparagraph*{Computation Patterns} The second and third lines specify how we
+handle \code{get} and \code{put} commands. Observe that we use a new type of
+pattern, called a \emph{computation pattern}; these are made up of a command and
+some arguments (which are also values), plus the continuation of the calling
+code. The types of arguments and the continuation are determined by the
+interface declaration and the type of the handler; for instance, in \code{<get
+  -> k>} the type of \code{k} is \code{\{S -> [State S] X\}}. The continuation
+can then perform more \code{State S} effects. This differs to some other
+implementations of effect handling languages (\cite{kammar2013handlers}) where
+the handlers can be \emph{deep}, meaning the continuation has been re-handled by
+the same handler automatically. Frank's \emph{shallow} handlers mean we have to
+explicitly re-handle the continuation, but have the benefit of giving more
+control over how we would like to do so.
 
 %% What happens when we run \code{runState xplusplus! 0}? When a computation is
 %% invoked, it is performed until it results in either a \emph{value} or a
@@ -864,8 +864,8 @@ but have the benefit of giving more control over how we would like to do so.
 \paragraph*{Effect Forwarding}
 
 Effects that are not handled by a particular handler are left to be forwarded up
-to the next highest one. For instance, we might want to write a random number to
-the state;
+to the next one. For instance, we might want to write a random number to the
+state;
 
 \begin{lstlisting}
   xplusrand : {[State Int, RandomInt] Unit}
@@ -2586,9 +2586,10 @@ fulfilled\footnote{An interrupt handler which inspects the body of the interrupt
 An example of an interrupt handler is \code{boringFeed};
 
 \begin{lstlisting}
-data FeedSigs = nextItem | request | display String
+data Feed = nextItem | request Int
+          | response (List Int) | display Int
 
-boringFeed : {FeedSigs -> Maybe {[Console] Unit}}
+boringFeed : {Feed -> Maybe {[Console] Unit}}
 boringFeed nextItem = just {print "10"}
 boringFeed _ = nothing
 \end{lstlisting}
@@ -2681,10 +2682,82 @@ once it is available.
 
 \section{In Action}
 
-Let's revisit the infinitely scrolling feed example from earlier. When the user
+Let's revisit the infinitely scrolling feed example from earlier, and consider
+the client thread, \feed. The bulk of the client is an interrupt handler for
+\code{nextItem} messages. The body of this handler will display the next datum
+and reinstall the interrupt handler, as well as perform any requests for extra data. The type signature of the body of our handler will be
 
+\begin{lstlisting}
+onNext : {List Int -> Maybe (Prom (List Int) <@\greytext{[InThread]}@>)
+          -> <@\greytext{[InThread]}@> Unit}
+\end{lstlisting}
 
+\noindent where \code{[InThread]} is an \emph{interface alias} for
+\code{[Promise Feed [Console], Console, RefState, Yield]}. The first argument to
+\code{onNext} is the currently stored cache of data. The second argument is a
+\code{Prom} cell which may not be present; this stores the promise that waits
+for a response from the server when a request for extra data is made.
 
+We use a helper function, \code{displayRestart}, to do some tasks that happen
+every time \code{onNext} is executed;
+
+\begin{lstlisting}
+displayRestart : {List Int -> Maybe (Prom (List Int) <@\greytext{[InThread]}@>)
+              -> <@\greytext{[InThread]}@> Unit}
+displayRestart cache p =
+    signal (display (head cache));
+    let cache = pop cache in
+    promise { nextItem -> just { onNext cache p } | _ -> nothing };
+    unit
+\end{lstlisting}
+
+\noindent We simply \code{display} the first element of the cache, and then
+install an interrupt handler for \code{nextItem} interrupts that reinstalls
+\code{onNext}, with the top item removed from the cache.
+
+For the sake of simplicity we assume that the cache size is fixed to 10 items.
+Then whenever we have 3 or less items in the cache, and another request is not
+already in progress, we want to issue a new request for data.
+
+\begin{lstlisting}
+onNext xs nothing = if (len xs == 3)
+    { let resp = promise {(response x) -> just {x} | _ -> nothing} in
+      signal (newData (last xs));
+      displayRestart xs (just resp) }
+    { displayRestart xs nothing }
+\end{lstlisting}
+
+\noindent Observe that if the length of the cache is 3 we first install an
+interrupt handler for \code{response} interrupts, and then issue a
+\code{newData} signal; we know that the server will respond to the
+\code{newData} interrupt it receives with a \code{response} message. As
+mentioned before, not every signal sent has a corresponding interrupt that will
+later be received; for instance, the \code{display} signal is sent without
+requiring an interrupt to respond, and the \code{nextItem} interrupt is received
+without the client sending a signal to cause it to come in.
+
+Once the request for new data has been issued, we reinvoke \code{onNext} (via
+\code{displayRestart}), but this time carrying the promise. This leads us to the
+other branch of \code{onNext};
+
+\begin{lstlisting}
+onNextList cache (just p) =
+    if (len cache == 0)
+         { let newCache = await p in
+           displayRestart newCache nothing }
+         { displayRestart cache (just p) }
+\end{lstlisting}
+
+\noindent Here we check if we are at the end of the current cache. If we are, we
+await the promise, binding \code{newCache} to the result. Once the promise
+\code{p} is fulfilled we proceed as normal with the cache returned from the
+\code{resp} promise.
+
+The client can then use this promise by installing it in the same way as in
+\code{displayRestart}; they may want to install another interrupt handler, to
+listen for other messages from the user interface.
+
+\section{Implementation Details}
 
 %% \chapter{Implementation (Old)}
 

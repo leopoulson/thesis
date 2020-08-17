@@ -982,7 +982,7 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
   {\bindsc{\effin{x}}{\effin{\adj}A}{\freeze{m}}{\sigs}{[\cu (\thunk{m}\mathord{:}\thunk{\effout{\sigs'}A})/x]}}
 \end{mathpar}
 
-\caption{Catching Frozen Terms rule.}}
+\caption{Catching Frozen Terms rule.}
 \label{fig:catchall-frozen}
 %% \figrule
 \end{figure}
@@ -1499,6 +1499,208 @@ with use of Theorem~\ref{thm:sub-red}.
 \todo{$c_{n + 1}$ needs to be fresh in Add-Counter}
 
 \todo{Also need to emphasise that it's not necessarily sequential counters.}
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Add-Counter]
+          { \EC[n]; \bluetext{c_1, \ldots, c_n} \redtou \EC[n']; \bluetext{c_1,
+              \ldots, c_n} \\
+            \EF \textsf{ is handler }}
+          { \EF[\EC[n]]; \bluetext{c_1, \ldots, c_n, c_{n+1}} \redtou
+            \EF[\EC[n']]; \bluetext{c_1, \ldots, c_n, c_{n+1}}}
+\\
+\inferrule[Handle-In]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+          \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, c_n}
+    \redtou
+    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots, \succc{c_n}} }
+\\
+\inferrule[Handle-In-Yield]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+          \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, c_{n-1}, \yieldc}
+    \redtou \\
+    \EC[\yield!; \cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots, \succc{c_{n-1}}} }
+\end{mathpar}
+\caption{New new counting}
+\end{figure}
+
+
+
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Add-Counter]
+          { \EC[n]; \bluetext{c_1, \ldots, c_n} \redtou \EC[n']; \bluetext{c_1,
+              \ldots, c_n} \\
+            \EF \textsf{ is 1st argument to scheduler }}
+          { \EF[\EC[n]]; \bluetext{c_1, \ldots, c_n, c_{n+1}} \redtou
+            \EF[\EC[n']]; \bluetext{c_1, \ldots, c_n, c_{n+1}}}
+\\
+% \inferrule[Handle-In]
+%   { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+%     (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+%     \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+%   }
+%   { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+%           \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, c_n}
+%     \redtou
+%     \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots, \succc{c_n}} }
+% \\
+\inferrule[Arg-Handle]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    % \highlight{\neg (\Yield \in \ext \text{ where } \sigs = \seed\pipe\ext)}
+    \highlight{\neg (\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i)  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots,
+      \justc{k}}
+    \redtou \\
+    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots,
+      \succc{\justc{k}}} }
+\\
+\inferrule[Arg-Yield-Can't]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    % \highlight{\neg (\Yield \in \ext \text{ where } \sigs = \seed\pipe\ext)}
+    \highlight{\neg (\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i)  } \\
+    \neg (\EC \text { allows } \Yield)
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots,
+      \yieldc}
+    \redtou \\
+    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots,
+      \yieldc} }
+\\
+\inferrule[Arg-Yield]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    \highlight{\neg (\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  )} \\
+    \EC \text{ allows } \Yield
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, c_{n-1},
+      \yieldc}
+    \redtou \\
+    \EC[\yield!; \cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots,
+      \succc{c_{n-1}}, \justc{0}} }
+\\
+\inferrule[Scheduler-Exit]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    \highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, \justc{k},
+      c_n}
+    \redtou \\
+    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots,
+      \succc{\justc{k}}} }
+\\
+\inferrule[Scheduler-Yield]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    \highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  } \\
+    \EC \text{ allows } \Yield
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, \yieldc, c_n}
+    \redtou \\
+    \EC[\yield!; \cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots,
+      \succc{c_{n - 2}}, \justc{0}} }
+\\
+  \inferrule[Scheduler-Yield-Can't]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    \highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  } \\
+    \neg (\EC \text{ allows } \Yield)
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_1, \ldots, \yieldc, c_n}
+    \redtou \\
+    \EC[\yield!; \cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_1}, \ldots,
+      \succc{c_{n - 2}}, \yieldc} }
+
+\end{mathpar}
+\caption{New new new counting}
+\end{figure}
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Add-Counter]
+          { \EC[n]; \bluetext{c_1, \ldots, c_n} \redtou \EC[n']; \bluetext{c_1,
+              \ldots, c_n} \\
+            \EF \textsf{ is 1st argument to scheduler }}
+          { \EF[\EC[n]]; \bluetext{c_1, \ldots, c_n, c_{n+1}} \redtou
+            \EF[\EC[n']]; \bluetext{c_1, \ldots, c_n, c_{n+1}}}
+\\
+\inferrule[Handle-Exit]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    % \highlight{\neg (\Yield \in \ext \text{ where } \sigs = \seed\pipe\ext)}
+    \highlight{\neg (\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i)  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}; \bluetext{c_1, \ldots,
+      c_n}
+    \redtou
+    \cu ((\many{\venv}(n_k) : B)); \bluetext{\succc{c_1}, \ldots,
+      \succc{c_n}} }
+\\
+\inferrule[Scheduler-Exit]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    \highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}; \bluetext{c_1, \ldots, c_{n-1},
+      c_n}
+    \redtou
+    \cu ((\many{\venv}(n_k) : B)); \bluetext{\succc{c_1}, \ldots,
+      \succc{c_{n-1}}} }
+\\
+\inferrule[Yield-Can]
+  { \EC~\allows~\Yield \\
+    % \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[m]; \bluetext{c_1, \ldots, \yield} \redtou \EC[\yield!; m];
+    \bluetext{c_1, \ldots, \justc{0}}}
+  \\
+
+\inferrule[Yield-Can't]
+  { \neg (\EC~\allows~\Yield) \\
+    % \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc \\
+    \EC[m]; \bluetext{c_n, \ldots, c_2, \justc{k}}~\redtou~\EC[m']; \bluetext{c_n,
+      \ldots, c_2, c_1'}
+  }
+  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yieldc} \redtou \EC[m'];
+    \bluetext{c_n, \ldots, c_2, \yieldc} }
+\end{mathpar}
+\caption{Concise counting.}
+\end{figure}
 
 %% \inferrule[R-Handle]
 %%   {% The type system should enforce this!
