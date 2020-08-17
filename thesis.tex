@@ -1156,6 +1156,7 @@ to the second thread.
 %%   until they are all a command / value - fix this }
 
 \subsection{Forking New Processes}
+\label{subsec:forking-new-processes}
 
 We can make use of Frank's higher-order effects to dynamically create new
 threads at runtime. We strengthen the \code{Yield} interface by adding a new
@@ -2492,34 +2493,60 @@ $\infers{\cdot}{\cdot}{\sigs}{m}{A}$ and $\checks{\cdot}{\cdot}{\sigs}{A}{n}$.
 In this section we give a brief introduction to programming with asynchronous
 effects, and introduce the Frank library for doing so.
 %
-Our design closely follwos \aeff~(\cite{ahman2020asynchronous}).
+Our design closely follows \aeff~(\cite{ahman2020asynchronous}).
 
-One can consider the traditional treatment of effect
-handling~(\cite{kammar2013handlers}) as having three stages. First an operation
-\textsf{op} is invoked. Then the handler for \textsf{op} --- being the
+One can consider the traditional treatment of shallow effect handling as having
+three stages. First an operation \textsf{op} is invoked, with arguments $V$ and
+continuation $\lambda x . M$. Then the handler for \textsf{op} --- being the
 \emph{implementation} of \textsf{op} --- is evaluated until it returns some
-value \textsf{V}. Finally, the continuation of the caller is resumed.
+value $V$. Finally, the continuation of the caller is resumed by binding $V$ to
+$x$ in $M$.
 
-\todo{Check the maths here}
+% \todo{Check the maths here}
 
-What makes effect handling \emph{synchronous} is that the three stages above
-happen in order and straight away. As soon as \textsf{op} is invoked, the
-handler is evaluated with the arguments to \textsf{op}. As soon as the handler
-has reduced to a value, the continuation is resumed. \todo{Rewrite this bit.}
-%
+What makes effect handling \emph{synchronous} is that the operation call
+\textsf{op} \emph{blocks} until the continuation $M$ is resumed. This means that
+for \emph{every} algebraic effect, the rest of the computation has to wait for
+the handler to be performed, even when the results are not immediately needed.
+% What makes effect handling \emph{synchronous} is that the three stages above
+% happen in order and straight away. As soon as \textsf{op} is invoked, the
+% handler is evaluated with the arguments to \textsf{op}. As soon as the handler
+% has reduced to a value, the continuation is resumed. \todo{Rewrite this bit.}
+
 The \emph{asynchronous} treatment of effect handling decouples these three
 stages; each of invoking an effect, evaluation of the handler, and resumption of
-the caller are separate. This permits the non-blocking invocation of effects; we
-invoke an operation and can continue the rest of the computation before the
-operation has been handled.
+the caller are separate.
 %
-The decoupling of operation invocation from handling has other benefits that we
-discuss later in this section.
+% This permits the non-blocking invocation of effects; we invoke an operation and
+% can continue the rest of the computation before the operation has been handled.
+This permits the non-blocking invocation of effects; we can invoke an operation,
+continue with other work, then when (or even if) we need the result of the
+operation we can choose to block.
+%
+% The decoupling of operation invocation from handling has other benefits that we
+% discuss later in this section.
+
+\todo{I'm not convinced by the use of ``the rest of the computation''}
+
+Consider effect handling as a simple two threaded application; one thread is the
+caller, which invokes some operation \textsf{op}, and the other is the handler
+for \textsf{op}. In the synchronous treatment, once the caller invokes \code{op}
+the rest of the caller is blocked until the handler has finished handling
+\code{op}, at which point the caller restarts. In the asynchronous treatment,
+the caller can continue executing; once it needs the result of the operation it
+can then choose to block.
+
+Asynchronous effects are used for writing multithreaded programs. A single
+thread might handle some operations and also perform other ones, which
+themselves are handled by other threads. In the rest of this section we explain
+this behaviour by example, and introduce our library for programming with
+asynchronous effects in Frank.
+
 %
 %% A secondary benefit of decoupling the components of effect handling is that
 %% operations can be invoked
 
-\todo{Talk about how these are all decoupled}
+% \todo{Talk about how these are all decoupled}
 
 \section{Communication}
 
@@ -2531,15 +2558,33 @@ making a request for another cache of data whenever the user is nearly at the
 end of the current cache. In this way, the user never notices the feed pausing
 to download more data.
 
-Asynchronous effects are particularly useful for writing \emph{multithreaded}
-programs. We may have several other threads in addition to \feed, such as a
-server and a user interface controller.
+Implemented with asynchronous effects, \feed~would send \emph{signals}, being
+requests that some abstract operation is performed, and \emph{interrupts}; these
+are requests that \feed~itself performs an operation. For instance, \feed~would
+send signals such as \code{display d} to ask that data \code{d} is displayed to
+the user, or \code{request}, to ask for a new cache of data from the server.
+Similarly, \feed~would receive interrupts such as \code{nextItem}, being a
+request that the client loads the next piece of data, or \code{response x},
+being the server responding to a request for more data.
+
+% This program has to interact with the outside world,
+
+% We can implement this using asynchronous effects and several smaller program
+% threads. We might have a user interface thread which deals with input and
+% output, a client which  a server which
+
+% Asynchronous effects are particularly useful for writing \emph{multithreaded}
+% programs. We may have several other threads in addition to \feed, such as a
+% server and a user interface controller.
 
 Using asynchronous effects, threads communicate with one another using
 \emph{signals}, which are analogous to effect invocations. For instance, \feed
 would use a \code{request} signal to ask for more data from the server. Signals
 sent from other threads become \emph{interrupts} from the receiver's point of
-view; for instance, \feed~would receive \code{response} interrupts from the server, containing the new cache of data.
+view; for instance, \feed~would receive \code{response} interrupts from the
+server, containing the new cache of data.
+
+\todo{Maybe say ``operation calls are further split into signals & interrupts?''}
 
 Despite this example of fairly conventional, we remark that each signal need not
 have a corresponding interrupt response and vice versa. For instance, in
@@ -2573,14 +2618,14 @@ received. An interrupt handler is a function of type \code{S -> Maybe \{R\}},
 where \code{S} is a sum type made up of the possible interrupts that can be
 received.
 %
-\todo{Fix the way we talk about S.}
+% \todo{Fix the way we talk about S.}
 %
 The return type of the handler is \code{Maybe \{R\}} as we can choose \emph{not}
-to handle the interrupt if we wish; this could be because it is the wrong type
-of signal, or if some other condition regarding the interrupt is not
-fulfilled\footnote{An interrupt handler which inspects the body of the interrupt
-  before executing is called a \emph{guarded} interrupt handler. We see an
-  example of guarded interrupt handling in
+to handle the interrupt by returning \code{nothing}; this could be because it is
+the wrong type of signal, or if some other condition regarding the interrupt is
+not fulfilled\footnote{An interrupt handler which inspects the body of the
+  interrupt before executing is called a \emph{guarded} interrupt handler. We
+  see an example of guarded interrupt handling in
   Section~\ref{sec:pre-emptive-scheduling}.}.
 %
 An example of an interrupt handler is \code{boringFeed};
@@ -2594,8 +2639,20 @@ boringFeed nextItem = just {print "10"}
 boringFeed _ = nothing
 \end{lstlisting}
 
-\noindent Whenever we receive a \code{nextItem} interrupt we just print out
-\code{10} and return unit. From henceforth we also refer to interrupt handlers
+% \noindent The interrupt handler \code{boringFeed} when installed will print out \code{10} when the
+
+\noindent When a thread installs the interrupt handler \code{boringFeed}, it
+prints out \code{10} the first time it receives a \code{nextItem} interrupt.
+
+The set of different signals and interrupts a computation can send and receive
+is encoded in a sum type where each different constructor is a different signal
+name, with extra parameters encoding the payload of the signal. The datatype
+\code{Feed} above is an example of such a type.
+
+% \noindent Whenever we receive a \code{nextItem} interrupt we just print out
+% \code{10} and return unit.
+%
+From henceforth we also refer to interrupt handlers
 as \emph{promises}; an interrupt handler for \textsf{op} once installed is a
 \emph{promise} to perform the given action once an \textsf{op} interrupt is
 received.
@@ -2612,13 +2669,11 @@ received.
 % operation can be handled multiple --- or even 0 --- times, across different
 % threads.
 
-
-
 \todo{Talk about system?}
 
-\todo{Talk about how one msg can start many handlers, etc}
+% \todo{Talk about how one msg can start many handlers, etc}
 
-\todo{Talk about signals converted to interrupts}
+% \todo{Talk about signals converted to interrupts}
 
 \section{An Interface for Asynchronous Effects}
 
@@ -2633,18 +2688,25 @@ data PStatus X = waiting | done X | resume {X -> Unit}
 
 A value of type \code{Prom X} is a reference to a value of type \code{PStatus
   X}. It is stored as a reference as we have to write to this cell from two
-locations; the interrupt handler itself and the handler for \code{await}
-commands (shown later in this section).
+locations; the interrupt handler itself updates the cell when it has been
+fulfilled, and the handler for \code{await} commands also has to access the cell
+when the promise is awaited.
 %
 \todo{Justify reference better?}
 %
-\code{PStatus} has three constructors. The first, \code{waiting}, expresses that
-the promise has not yet been fulfilled. The second, \code{done x}, expresses
-that the promise has completed and resulted in a value, \code{x}. The third
-option, \code{resume cont}, is used when a promise is awaited. The continuation
-\code{cont} is the continuation offered by the calling code when the \code{await}
-effect is performed. We see how this is handled later in this section.
-\todo{Maybe go over this?}
+A promise has three possible staes, each a different constructor for
+\code{PStatus}. The first, \code{waiting}, expresses that the promise has not
+yet been fulfilled. The second, \code{done x}, expresses that the promise has
+completed and resulted in a value, \code{x}. The third option, \code{resume
+  cont}, is used when a promise is awaited but has not yet completed; in this
+case, the handler for \code{await} writes the continuation of the caller to
+\code{resume}. The interrupt handler then automatically resumes this once it is
+fulfilled.
+
+% The
+% continuation \code{cont} is the continuation offered by the calling code when
+% the \code{await} effect is performed. We see how this is handled later in this
+% section. \todo{Maybe go over this?}
 
 \todo{Talk about caller not getting access to the Pid cell}
 
@@ -2656,9 +2718,10 @@ interface Promise S =
   | await R : Prom R <@\greytext{[Promise S, RefState, Yield]}@> -> R
 \end{lstlisting}
 
-The entire \code{Promise} interface is polymorphic in the type of
-\emph{signals} that threads can perform. However, the commands themselves are
-polymorphic in the result types. \todo{Flesh this out / remove it.}
+The entire \code{Promise} interface is polymorphic in the type of \emph{signals}
+that threads can perform. This will be a datatype such as \code{Feed}, as
+discussed earlier. The commands themselves are polymorphic in the
+result types.
 
 The \code{promise} command is used to install an interrupt handler; it
 takes an interrupt handler and returns a \code{Prom R} value. The interrupt
@@ -2667,18 +2730,35 @@ to the \code{RefState} interface; we show why later. The \code{Yield} interface
 is also present so that interrupt handlers are themselves pre-emptible when
 executed.
 
-The \code{signal} command simply takes a value of the \code{S} type and returns
+The \code{signal} command takes a value of the \code{S} type and returns
 \code{unit}. When handling \code{signal sig}, all other threads are informed
-that some thread has invoked the signal \code{sig}. At this point the other
-threads are \emph{interrupted}, and all installed interrupt handlers are
-evaluated against the signal. We revisit how interrupt handlers are executed
-later.
+that a thread has invoked the signal \code{sig}. No matter what they were
+previously doing, all installed interrupt handlers now have to handle this
+signal. This process is the namesake of interrupts; the other threads are
+interrupted with this signal.
 
-\todo{Redo above}
+For every thread, all installed interrupt handlers are triggered with the
+incoming interrupt. Those that reduce to \code{nothing} are reinstalled; those
+that reduce to \code{just thunk} immediately perform the \code{thunk} before
+continuing with the interrupted computation.
 
-Finally, the \code{await} command takes a \code{Prom R} cell and returns a value
-of type \code{R}. Here we block and eventually return the value of the promise,
-once it is available.
+Finally, the \code{await} command takes a \code{Prom R} value and returns a
+value of type \code{R}. At this point, we inspect the promise state as stored in
+reference. If the promise is still \code{waiting}, we take the continuation
+\code{cont} offered up by \code{await} and store it in the cell as \code{resume
+  cont}. If the promise is \code{done} we immediately resume the continuation
+with the stored value. At this point the cell should not have a continuation in
+it, as it's not possible for multiple threads to await a single promise. As
+such, we just safely exit.
+
+When a promise is fulfilled, it looks inside its associated \code{Prom} cell. If
+the status is just \code{waiting}, the promise just writes the returned value to
+the cell as \code{done x}. If there is a resumption in the cell, the promise
+immediately resumes it. There should not already be a \code{done x} value in the
+cell, as only the given promise and the handler for the promise interface should
+have access to it.
+
+\todo{Better thing for what we do if there's a continuation in there.}
 
 \section{In Action}
 
@@ -2757,7 +2837,30 @@ The client can then use this promise by installing it in the same way as in
 \code{displayRestart}; they may want to install another interrupt handler, to
 listen for other messages from the user interface.
 
-\section{Implementation Details}
+\section{Modelling Asynchrony}
+
+Whilst it is convenient to describe our implementation as truly asynchronous, it
+is not in practise.
+
+\todo{Better opening paragraph}
+
+We use the system as described in Chapter~\ref{chap:preemptive-concurrency} to
+automatically force threads to \yield~after a certain amount of time passes.
+This gives the benefit of not having to worry about manually inserting yields,
+as previously discussed.
+
+We use a scheduler similar to as descirbed in
+Section~\ref{subsec:forking-new-threads}; rather than a multihandler, which has
+a fixed number of threads to be handled, we use the \code{Threads} datatype as
+discussed earlier to store our threads in. When one yields, we take the next one
+and start executing that.
+
+Earlier we mentioned that when a thread sends a signal, all other threads
+immediately perform the body of any fulfilled promises. This is not true in
+practise; all other threads are notified that they should perform the bodies of
+the fulfilled promises, but they only do so when the performing thread gets
+processor time. This is a more structured approach than that taken by \aeff,
+where the body of a fulfilled promise may be performed instantly.
 
 %% \chapter{Implementation (Old)}
 
@@ -3314,6 +3417,7 @@ depends on signals being able to execute many promises at once (that is,
 behaving like \emph{deep} rather than shallow handlers).
 
 \section{Async-Await with Workers}
+\label{sec:async-await}
 
 Our asynchronous effects system can express the familiar async-await
 abstraction. This had previously been implemented in Frank by forking new
@@ -3348,10 +3452,19 @@ handler. Observe that \code{async} returns the promise waiting for the correct
 result. As such, the \code{await} operation is just the built-in \code{await}
 operation; we don't need to define any extra functions.
 
-\code{call} signals are handled by the controller thread. This thread keeps
-track of which of the workers do not currently have a task running, and
-also installs a promise to set its state to idle once the corresponding
-\code{result} message is received.
+The controller installs an interrupt handler to react to \code{async}
+interrupts. The thread tracks which threads have a task running; if there is a
+free worker it then performs a \code{workIn} message, containing the computation
+and the ID of the worker who should perform it. The controller then installs a
+promise to update the active status of the corresponding worker once a
+\code{result} interrupt is received.
+
+% \code{call} signals are handled by the controller thread. This thread keeps
+% track of which of the workers do not currently have a task running, and
+% also installs a promise to set its state to idle once the corresponding
+% \code{result} message is received.
+
+\todo{Introduce what all of the signals are ????}
 
 \begin{lstlisting}
 onResult : {Ref (List (Maybe Int)) -> Int -> Sig
@@ -3359,41 +3472,29 @@ onResult : {Ref (List (Maybe Int)) -> Int -> Sig
 onResult active wid (result res cid) =
     just { write active (putIn nothing wid (read active)) }
 onResult _ _ _ = nothing
-
-onAsyncBody : {Ref (List (Maybe Int)) -> {String} -> Int
-    -> <@\greytext{[Promise]}@> Unit}
-onAsyncBody active p callId =
-    case (nextFree (read active))
-        { nothing -> print "All workers are busy."
-        | (just wid) ->
-            write active (putIn (just callId) wid (read active));
-            promise (prom {s -> onResult active wid s});
-            signal (workIn p wid callId)};
-    promise (prom {s -> onAsync active s}); unit
 \end{lstlisting}
 
-Workers listen for a \code{workIn} message; when one comes in with their ID in
-the payload, they simply perform the computation and send a signal with the
-result.
+% onAsyncBody : {Ref (List (Maybe Int)) -> {String} -> Int
+%     -> <@\greytext{[Promise]}@> Unit}
+% onAsyncBody active p callId =
+%     case (nextFree (read active))
+%         { nothing -> print "All workers are busy."
+%         | (just wid) ->
+%             write active (putIn (just callId) wid (read active));
+%             promise (prom {s -> onResult active wid s});
+%             signal (workIn p wid callId)};
+%     promise (prom {s -> onAsync active s}); unit
+% \end{lstlisting}
 
-\begin{lstlisting}
-workProm : {Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
-workProm wid (workIn p wid' callId) =
-    if (wid == wid')
-       { just {let res = p! in
-               signal (result res callId);
-               worker wid; unit}}
-       { nothing }
-workProm _ _ = nothing
-
-worker : {Int -> <@\greytext{[Promise]}@> Pid Unit <@\greytext{[Promise]}@>}
-worker wid = promise (prom {s -> workProm wid s})
-\end{lstlisting}
+Workers listen for a \code{workIn} interrupt; when one comes in with their ID in
+the payload, they simply perform the computation and send a \code{result} signal
+with the result.
 
 This \code{result} signal triggers the interrupt handler installed by the
 \code{async} caller, but also triggers the promise installed by the controller,
 to inform it that the worker is now idle. This ability to trigger multiple
-promises with one message is a subtle but useful feature of the system.
+promises with one message is a subtle but useful feature of the asynchronous
+effects system.
 
 \section{Cancelling Tasks}
 
@@ -3467,42 +3568,48 @@ promises, even though cancellation of calls and promises should be orthogonal.
 With the \textsf{Cancel} effect, we can also define the useful \code{interleave}
 combinator, in the spirit of Koka's interleave
 operator~\cite{leijen2017structured}.
+%
+This lets us issue two tasks on two different threads, using the \code{call}
+signal as defined in Section~\ref{sec:async-await}. We then install an interrupt
+handler which listens for \code{result} interrupt; if a \code{result} interrupt
+corresponds to one of the installed threads we cancel the other thread using
+\code{cancelCall} and return the received result.
 
 %% \todo{Think of a better way to make reference to Daan's work}
 
-\begin{lstlisting}
-resultWaiter : {String -> Int -> Int -> Int
-    -> Maybe {<@\greytext{[Promise]}@> String}}
-resultWaiter res callNo callA callB =
-    if (callNo == callA)
-        { just { signal (cancelCall callB); res} }
-        { if (callNo == callB)
-            { just { signal (cancelCall callA); res} }
-            { nothing }}
+% \begin{lstlisting}
+% resultWaiter : {String -> Int -> Int -> Int
+%     -> Maybe {<@\greytext{[Promise]}@> String}}
+% resultWaiter res callNo callA callB =
+%     if (callNo == callA)
+%         { just { signal (cancelCall callB); res} }
+%         { if (callNo == callB)
+%             { just { signal (cancelCall callA); res} }
+%             { nothing }}
 
-interleave : {{String} -> {String}
-    -> Ref Int -> <@\greytext{[Promise]}@> Pid String <@\greytext{[Promise]}@>}
-interleave procA procB callCounter =
-    let callA = read callCounter in
-    write callCounter (callA + 1);
-    let callB = read callCounter in
-    write callCounter (callB + 1);
+% interleave : {{String} -> {String}
+%     -> Ref Int -> <@\greytext{[Promise]}@> Pid String <@\greytext{[Promise]}@>}
+% interleave procA procB callCounter =
+%     let callA = read callCounter in
+%     write callCounter (callA + 1);
+%     let callB = read callCounter in
+%     write callCounter (callB + 1);
 
-    let ileaveWaiter =
-        promise (prom {(result res callNo) ->
-            resultWaiter res callNo callA callB
-                      | _ -> nothing
-        }) in
+%     let ileaveWaiter =
+%         promise (prom {(result res callNo) ->
+%             resultWaiter res callNo callA callB
+%                       | _ -> nothing
+%         }) in
 
-    signal (call procA callA);
-    signal (call procB callB);
+%     signal (call procA callA);
+%     signal (call procB callB);
 
-    ileaveWaiter
-\end{lstlisting}
+%     ileaveWaiter
+% \end{lstlisting}
 
-This will issue the two tasks on different threads. We then install an interrupt
-handler for \code{result} signals; whichever result is received first we return
-and cancel the other task.
+% This will issue the two tasks on different threads. We then install an interrupt
+% handler for \code{result} signals; whichever result is received first we return
+% and cancel the other task.
 
 This lets us write timeouts for functions, where we interleave a potentially
 long-running request with a timer; we cancel the request if it takes too long.

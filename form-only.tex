@@ -89,7 +89,7 @@
 \newcommand{\counter}{{\color{blue}c_y}}
 \newcommand{\justc}[1]{{\color{blue} c({#1})}}
 \newcommand{\yieldc}{{\color{blue}{\textsf{yield}}}}
-\newcommand{\plusc}{{\color{blue} +_c}}
+\newcommand{\plusc}{{\color{blue} \oplus }}
 \newcommand{\threshc}{{\color{blue} t_y}}
 \newcommand{\succc}[1]{\bluetext{#1 \plusc 1}}
 
@@ -1700,6 +1700,127 @@ with use of Theorem~\ref{thm:sub-red}.
     \bluetext{c_n, \ldots, c_2, \yieldc} }
 \end{mathpar}
 \caption{Concise counting.}
+\end{figure}
+
+
+
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Add-Counter]
+          { \EC[n]; \bluetext{c_1, \ldots, c_n} \redtou \EC[n']; \bluetext{c_1,
+              \ldots, c_n} \\
+            \EF \textsf{ is 1st argument to scheduler }}
+          { \EF[\EC[n]]; \bluetext{c_1, \ldots, c_n, c_{n+1}} \redtou
+            \EF[\EC[n']]; \bluetext{c_1, \ldots, c_n, c_{n+1}}}
+\\
+\inferrule[Handle-Exit]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    % \highlight{\neg (\Yield \in \ext \text{ where } \sigs = \seed\pipe\ext)}
+    \highlight{\neg (\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i)  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}; \bluetext{c_1, \ldots,
+      c_n}
+    \redtou
+    \cu ((\many{\venv}(n_k) : B)); \bluetext{\succc{c_1}, \ldots,
+      \succc{c_n}} }
+\\
+\inferrule[Scheduler-Exit]
+  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    \highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~\many{t}; \bluetext{c_1, \ldots, c_{n-1},
+      c_n}
+    \redtou
+    \cu ((\many{\venv}(n_k) : B)); \bluetext{\succc{c_1}, \ldots,
+      \succc{c_{n-1}}} }
+\\
+% \inferrule[Handle-Exit]
+%   { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+%     (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+%     % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+%     % \highlight{\neg (\Yield \in \ext \text{ where } \sigs = \seed\pipe\ext)}
+%     \highlight{\neg (\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i)  }
+%     % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+%   } { \cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
+%         \to}~\effout{\sigs}B})~\many{t}; \bluetext{c_1, \ldots,
+%       c_n}
+%     \redtou
+%     \cu ((\many{\venv}(n_k) : B)); \bluetext{\succc{c_1}, \ldots,
+%       \succc{c_n}} }
+% \\
+
+\inferrule[Yield-Can]
+  { \EC~\allows~\Yield \\
+    % \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc
+  }
+  { \EC[m]; \bluetext{c_1, \ldots, \yield} \redtou \EC[\yield!; m];
+    \bluetext{c_1, \ldots, \justc{0}}}
+  \\
+
+\inferrule[Yield-Can't]
+  { \neg (\EC~\allows~\Yield) \\
+    % \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc \\
+    \EC[m]; \bluetext{c_n, \ldots, c_2, \justc{k}}~\redtou~\EC[m']; \bluetext{c_n,
+      \ldots, c_2, c_1'}
+  }
+  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yieldc} \redtou \EC[m'];
+    \bluetext{c_n, \ldots, c_2, \yieldc} }
+\end{mathpar}
+\caption{Concise counting, updated}
+\end{figure}
+
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Argument-Increment]
+  { %k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    %(\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    %\highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+    n \redtoc n'
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i; \highlight{\bluetext{c}}} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, n, \many{n})
+    \redtou \\
+     \cu (\thunk{((r_{i,j})_j \to n_i)_i; \highlight{\textsf{tryReset}(\bluetext{\succc{c}}, \adj_{|\many{t}|})}} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, \highlight{\textsf{tryYield}(n', \bluetext{\succc{c}}, \adj_{|\many{t}|})}, \many{n})
+       }
+\\
+\end{mathpar}
+\caption{Concise counting, updated}
+\end{figure}
+
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Argument-Increment]
+  { %k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    %(\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    %\highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+    n \redtoc n'
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i; \highlight{\bluetext{c}}} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, n, \many{n})
+    \redtou \\
+     \cu (\thunk{((r_{i,j})_j \to n_i)_i; \highlight{\textsf{tryReset}(\bluetext{\succc{c}}, \adj_{|\many{t}|})}} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, \highlight{\textsf{tryYield}(n', \bluetext{\succc{c}}, \adj_{|\many{t}|})}, \many{n})
+       }
+\\
+\end{mathpar}
+\caption{Concise counting v2}
 \end{figure}
 
 %% \inferrule[R-Handle]
