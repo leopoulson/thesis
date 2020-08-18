@@ -1823,6 +1823,28 @@ with use of Theorem~\ref{thm:sub-red}.
 \caption{Concise counting v2}
 \end{figure}
 
+\begin{figure}[h]
+%% \figrule
+%% \flushleft
+\begin{mathpar}
+\inferrule[Argument-Increment]
+  { %k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    %(\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    %\highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+    n \redtoc n'
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i \highlight{\bluetext{@ c}}} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, n, \many{n})
+    \redtou \\
+     \cu (\thunk{((r_{i,j})_j \to n_i)_i \highlight{\bluetext{@} (\textsf{tryReset}(\bluetext{\succc{c}}, \adj_{|\many{t}|}))}} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, \highlight{\textsf{tryYield}(n', \bluetext{\succc{c}}, \adj_{|\many{t}|})}, \many{n})
+       }
+\\
+\end{mathpar}
+\caption{Concise counting v3}
+\end{figure}
+
 %% \inferrule[R-Handle]
 %%   {% The type system should enforce this!
 %%    %(\handles{\adj_j}{t_j})_j \\

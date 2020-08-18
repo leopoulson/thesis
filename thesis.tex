@@ -1,5 +1,6 @@
 \documentclass[msc,deptreport,cs]{infthesis} % Do not change except to add your degree (see above).
 
+\usepackage[usenames,dvipsnames]{xcolor}
 %% Imports poached from frankly
 %% STILL can't find what makes \figrule work
 \usepackage{natbib}
@@ -58,7 +59,6 @@
 %%             pdftitle={Doo bee doo bee doo}]{hyperref}
 %\hypersetup{colorlinks=true,citecolor=blue,linkcolor=blue}
 %% \hypersetup{colorlinks=true,allcolors=black}
-\usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{url}
 
 % get rid of hypertext link on \citeauthor
@@ -119,11 +119,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-\newcommand{\counter}{{\color{blue}c_y}}
-\newcommand{\justc}[1]{{\color{blue} c({#1})}}
+\newcommand{\counter}{{\color{blue} \textsf{c}}}
+\newcommand{\justc}[1]{{\color{blue} \textsf{count}({#1})}}
 \newcommand{\yieldc}{{\color{blue}{\textsf{yield}}}}
-\newcommand{\plusc}{{\color{blue} +_c}}
-\newcommand{\threshc}{{\color{blue} t_y}}
+\newcommand{\plusc}{{\color{blue} \oplus}}
+\newcommand{\threshc}{{\color{blue} \textsf{t}}}
 \newcommand{\succc}[1]{\bluetext{#1 \plusc 1}}
 
 \newcommand{\bluetext}[1]{{\color{blue}#1}}
@@ -1596,12 +1596,15 @@ $\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
 \section{Motivation}
 \label{sec:interrupt-motivation}
 
-Our scheduler in Section~\ref{sec:concurrency} relies on threads \yield{}ing.
-This is fine for small examples, but when working with longer programs this is
-inconvenient; the programmer must insert \yield{}s with a consistent frequency,
-so as to avoid process starvation. It would be better to just use some automatic
-way of \yield{}ing.
+Our scheduler in Section~\ref{sec:concurrency} relies on threads manually
+\yield{}ing. This is fine for simple examples, but when working with more
+complex programs this is inconvenient; the programmer must insert \yield{}s with
+a consistent frequency, so as to avoid process starvation. Furthermore, if we
+use external or library functions these will not hold yields, so will be
+uninterruptible. It would be simpler and fairer to just use some automatic way of
+\yield{}ing.
 
+\todo{Redo above}
 
 %% One important part of our asynchronous effect handling system is the ability to
 %% interrupt arbitrary computations. If two threads are running concurrently and
@@ -1613,12 +1616,15 @@ way of \yield{}ing.
 Consider the two programs below;
 
 \begin{lstlisting}
+interface Stop = stop : Unit
+interface Go = go : Unit
+
 controller : {[Stop, Go, Console] Unit}
 controller! =
-    stop!; print stop ; sleep 200000; go!; controller!
+    stop!; print "stop" ; sleep 200000; go!; controller!
 
 runner : {[Console] Unit}
-runner! = print ``1 ``; print ``2 ``; print ``3 '';
+runner! = print "1 "; print "2 "; print "3 "
 \end{lstlisting}
 
 %% \noindent We ideally want a multihandler that can run these two programs in
@@ -2046,6 +2052,8 @@ evaluate \code{print "B"} first. Both of these would obviously result in
 different things printed to the console.
 
 \section{Counting}
+\label{sec:counting}
+
 
 %% The semantics given by Section~\ref{sec:inserting-yields} is fine, but is
 %% non-deterministic; at any point, we can choose to either insert a \yield
@@ -2056,6 +2064,8 @@ The system described in Section~\ref{sec:inserting-yields} is slightly
 problematic; not only is it nondeterministic, but we can insert a \yield
 whenever we want. If we spend too much time inserting and handling \yield
 commands little other computation will be done.
+
+\todo{It's not problematic; it's just not practical}
 
 To combat this we supplement the operational semantics with a counter
 $\counter$. This counter has two states; it could either be counting up, which
@@ -2144,7 +2154,7 @@ terms.
 
 \paragraph*{Determinism}
 Observe that the semantics of Frank equipped with the rules in
-Figure~\ref{sec:counting-rules} are now deterministic; for any term and counter
+Figure~\ref{fig:counting-rules} are now deterministic; for any term and counter
 pair, there is only one possible reduction we can make. This is a clear
 improvement on the nondeterministic semantics of Section~\ref{sec:inserting-yields},
 whilst still maintaining a similar behaviour; we are simply \emph{restricting}
@@ -2154,7 +2164,7 @@ We can characterise this by saying that \countingfrank~\emph{implements}~
 \nondetfrank; that is to say the counting system gives a deterministic way to
 perform the nondeterministic system.
 
-\begin{theorem}[Counting Implements Nondeterminism]
+\begin{theorem}[Counting Implements Nondeterminism] ~
 %% \begin{restatable}[Counting Implements Nondeterminsim]{theorem}{countimplynondet}\label{thm:count-impl-nondet}
 \begin{itemize}
 \item For any use $m$ and counter $\counter$, if $m, \counter~\redtou~
@@ -2165,8 +2175,11 @@ perform the nondeterministic system.
 %% \end{restatable}
 \end{theorem}
 
-One might consider a different approach, rather than a global counter, which
-would also implement the nondeterministic semantics.
+% One might consider a different approach, rather than a global counter, which
+% would also implement the nondeterministic semantics.
+
+In Section~\ref{sec:starvation} we see a different approach, rather than a
+global counter, which also implements the nondeterministic semantics.
 
 \section{Handling}
 \label{sec:handling}
@@ -2260,6 +2273,7 @@ Automatically inserting \yield-handling clauses when combined with automatically
 overhead to the programmer.
 
 \section{Starvation}
+\label{sec:starvation}
 
 Consider the following program;
 
@@ -2276,108 +2290,114 @@ Consider the following program;
 \end{lstlisting}
 
 We would like \code{tree!} to print out \code{"A B C A B C A B C ..."}. However, when
-using the insertion and handling of \yield~commands as discussed, the result is
+using \countingfrank~with automatic insertion of \yield~commands, the result is
 \code{"A B C B C B C ..."}. The \code{echo "A "} thread is \emph{starved} of
 processor time. This happens because when \code{echo "B "} yields the command
 is immediately handled by the lower \code{sched} handler and \code{echo "C "}
-is ran (and vice versa). Ideally what we want is to break out of this cycle
-and \yield~on top of the lower scheduler.
+is ran (and vice versa).
 
-To do this we need to maintain a series of counters; one for each multihandler.
-If we consider the \code{tree} as a tree where \code{echo} functions are at
-the leaves and \code{sched} makes up the branches, we also can now yield at the
-branches as well as the leaves.
+What we need is for each multihandler to have its own counter, which is
+incremented every time an argument to the multihandler reduces. When an argument
+reduces when the counter is over the threshold, we insert a \yield command in
+front of the reduct.
 
-We have to update the semantics with the following rules to make this possible.
-Our transitions are now of the form $m, \bluetext{\many{\counter}} \redtou m',
-\bluetext{\many{\counter}}$. This list of counters is the list of counters
-\emph{above} the current term in this tree of multihandlers. For instance,
-\code{echo "A "} will maintain the counter for \code{sched} directly above it;
-but \code{echo "B "} maintains the counter for both multihandlers above. The
-rules are shown in Figure~\ref{fig:tree-counting}. We label this system
-\treefrank. As before, we adopt the syntactic sugar that if transitions are not
-labelled with the counters then the counters remain unchanged.
+With respect to \code{tree}, in this system \code{echo "A "} will reduce,
+increasing the counter at the upper \code{sched}uler until the counter passes
+over the threshold, at which point a \yield is inserted in front of \code{echo
+  "A "}. We now switch to the other branch, \code{sched (echo "B ") (echo "C
+  ")}. When \code{echo "B "} reduces, we increment a counter at both
+\code{sched} handlers. Both counters then pass \threshc~at the same time, at
+which point we insert a \yield~in front of \code{echo "B "} to be handled by the
+lower scheduler. A similar thing happens to \code{echo "C "}.
+
+\todo{Finish this!}
 
 \begin{figure}
-%% \figrule
-%% \flushleft
 \scalebox{\figscale}{%
+
 \begin{mathpar}
 
-\inferrule[Add-Counter]
-          { \EC[n]; \bluetext{c_n, \ldots, c_1} \redtou \EC[n']; \bluetext{c_n,
-              \ldots, c_1} \\
-            \EF \textsf{ is handler }}
-          { \EF[\EC[n]]; \bluetext{c_{n+1}, c_n, \ldots, c_1} \redtou
-            \EF[\EC[n']]; \bluetext{c_{n+1}, c_n, \ldots, c_1}}
-\\
-
 \inferrule[R-Handle]
-  { k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
-    (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
-    \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
-  }
-  { \EC[\cu (\thunk{((r_{i,j})_j \to n_i)_i} : \thunk{\many{\effin{\adj} A
-          \to}~\effout{\sigs}B})~\many{t}]; \bluetext{c_n, \ldots, c_1}
-    \redtou
-    \EC[\cu ((\many{\venv}(n_k) : B))]; \bluetext{\succc{c_n}, \ldots, \succc{c_1}} }
+  {% The type system should enforce this!
+   %(\handles{\adj_j}{t_j})_j \\
+   k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+   (\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}}
+   %% \forall i < k.\exists j.r_{i, j} \# t_j}
+   %% l \text{~is minimal}}
+  {\cu (\thunk{((r_{i,j})_j \to n_i)_i} \bluetext{@ c} : \thunk{\many{\effin{\adj} A \to}~\effout{\sigs}B})~\many{t} \redtou \cu ((\many{\venv}(n_k) : B)}
+ 
 \\
 
-\inferrule[R-Yield-Can]
-  { \EC~\allows~\Yield \\
-    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc
-  }
-  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yield} \redtou \EC[\yield!; m];
-    \bluetext{c_n, \ldots, c_2, \justc{0}}}
-\\
-
-\inferrule[R-Yield-Can't]
-  { \neg (\EC~\allows~\Yield) \\
-    \forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc \\
-    \EC[m]; \bluetext{c_n, \ldots, c_2, \justc{k}}~\redtou~\EC[m']; \bluetext{c_n,
-      \ldots, c_2, c_1'}
-  }
-  { \EC[m]; \bluetext{c_n, \ldots, c_2, \yieldc} \redtou \EC[m'];
-    \bluetext{c_n, \ldots, c_2, \yieldc} }
-\\
+\inferrule[Arg-Increment]
+  { %k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
+    %(\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
+    % \exists i. \adj_i = \adapt_i\pipe\ext_i \
+    %\highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
+    % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
+    n \redtoc n'
+  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i}  {\bluetext{@ c}} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, n, \many{n})
+    \redtou \\
+     \cu (\thunk{((r_{i,j})_j \to n_i)_i } {\bluetext{@} (\textsf{incOrReset}(\bluetext{c}, \adj_{|\many{t}|}))} : \thunk{\many{\effin{\adj} A
+        \to}~\effout{\sigs}B})~(\many{t}, {\textsf{maybeYield}(n', \bluetext{c}, \adj_{|\many{t}|})}, \many{n})
+       }
 \end{mathpar}
 }
-\caption{New counting, backwards ordered though}
+\caption{Updated Counting Rules}
 \label{fig:tree-counting}
 \end{figure}
 
-\textsc{R-Yield-Can} and \textsc{R-Yield-Can't} are fairly similar to the rules
-in Figure~\ref{fig:counting-rules}. The main difference is that we can only insert a
-yield if every counter above ours is not also trying to \yieldc. This is
-important as it gives priority to multihandlers higher up in our syntax tree.
+This system is expressed formally in Figure~\ref{fig:tree-counting}. Every
+handler --- just being a collection of pattern matching rules
+$\thunk{((r_{i,j})_j \to n_i)_i}$ --- is implicitly given a counter \counter~
+initialised at $\justc{0}$. The first rule, \textsc{R-Handle}, expresses that
+counters are removed when a handler is evaluated on fully-evaluated arguments.
+The second rule, \textsc{Arg-Increment}, expresses that when an argument to a
+multihandler evaluates, we increment the counter; if the counter is above the
+yielding threshold we insert a yield command before the argument and reset the
+counter. \textsc{Arg-Increment} relies on two auxilary functions, defined as;
 
-\textsc{R-Handle} is also similar to previous versions of the rule. The
-difference again is that we don't allow a transition if any of the earlier
-counters are in the \yieldc~position; they must \yield~before we can progress.
-Once we do handle the operation we increase all of the counters in the stack.
+\begin{equations}
+  \textsf{incOrReset} (\counter, \adj = \adapt\pipe\ext) =
+          \left\{ \ba{@{}l@{\quad}l@{}}
+               \counter & \text{if } \Yield \not \in \ext \\
+               \succc{\counter} & \text{if } \Yield \in \ext \text{ and } \counter \not = \yieldc \\
+               \justc{0} & \text{if } \Yield \in \ext \text{ and } \counter = \yieldc
+              % \justc{x + y} & \text{if } x + y \leq \threshc \\
+              % \yieldc & \text{otherwise}
+          \right.
+\end{equations}
 
-\todo{Check Add counter????}
+\begin{equations}
+  \textsf{maybeYield} (n, \counter, \adj = \adapt\pipe\ext) =
+          \left\{ \ba{@{}l@{\quad}l@{}}
+            \yield!; n & \text{if } \Yield \in \ext \text{ and } \counter = \yieldc \\
+            n & \text{otherwise}
 
-Observe that this now means all threads scheduled in \code{tree} will get
-processor time. As \code{echo ``B''} evaluates the counter at both schedulers is
-incremented. They both pass over the threshold at the same time, and thus both
-counters are in \yieldc. However, the lower scheduler is not allowed to insert a
-\yield yet as the upper one blocks it. This is what the constraint
-$\forall~j\leq~(n-1)~.~\bluetext{c_j} \not = \yieldc$ implements. Thus the
-higher scheduler yields first, and \code{echo ``A''} gets processor time. With
-this, we can express a liveness property of the new system.
+               % \counter & \text{if } \Yield \not \in \ext \\
+               % \succc{\counter} & \text{if } \Yield \in \ext \text{ and } \counter \not = \yieldc \\
+               % \justc{0} & \text{if } \Yield \in \ext \text{ and } \counter = \yieldc
+          \right.
+\end{equations}
 
-\begin{theorem}[\treefrank~Liveness]
-Given a multihandler $m$ with $n$ threads to be scheduled, any thread handled by
-$m$ receives processor time in $n * \threshc$ \emph{local} reductions.
+We denote this system, being the basic system described in
+Chapter~\ref{chap:formalisation} equipped with the rules in
+Figure~\ref{fig:tree-counting}, as \treefrank.
+
+\begin{theorem}[\treefrank~Implements Nondeterminism]~
+\begin{itemize}
+\item For any use $m$ if $m~\redtou~m'$ in \treefrank~then $m~\redtou~m'$ in
+  \nondetfrank.
+\item For any construction $n$, if $n~\redtou~n'$ in \treefrank~then
+  $n~\redtou~n'$ in \nondetfrank.
+\end{itemize}
 \end{theorem}
+\begin{proof}
+  We can see that this holds by just erasing the counters from the
+  multihandlers.
+\end{proof}
 
-A local reduction is a reduction that happens underneath the multihandler in
-question. In the function \code{tree} above, when \code{echo "A "} reduces it is
-local to the top-level \code{sched} handler but not the lower one.
-
-This directly implies that we do not have thread starvation in \treefrank~as we
-do in \countingfrank.
+\todo{Finish off this section; talk about starvation, etc}
 
 \section{Soundness}
 
@@ -2386,9 +2406,9 @@ subject reduction theorem needed for this proof. Our system is nothing more than
 the system of~\citeauthor{convent2020doo} with extra rules; as such we omit most of
 the details.
 
-\begin{theorem}[Subject Reduction]\label{thm:sub-red}
-\vskip
-\begin{itemize}\\
+\begin{theorem}[Subject Reduction]~
+  \label{thm:sub-red}
+\begin{itemize}
 \item If $\inferskgs{m}{A}$ and $m; \counter \redtou m'; \counter'$ then $\inferskgs{m'}{A}$.
 \item If $\checkskgs{A}{n}$ and $n; \counter \redtoc n'; \counter'$ then $\checkskgs{A}{n'}$.
 \end{itemize}
