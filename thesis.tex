@@ -482,7 +482,12 @@
 \maketitle
 
 \section*{Acknowledgements}
-thanks!
+Thanks to Sam Lindley for giving me the opportunity to write this dissertation,
+and for his feedback and support throughout, right up to the end.
+
+Thanks to everyone who made the past year so much fun. Thanks to my parents and grandparents for all of the support throughout the whole process.
+
+
 
 \tableofcontents
 
@@ -520,8 +525,8 @@ manner.
 
 In this project we investigate the implementation and applications of
 asynchronous effect handling. Our lens for this is the language
-Frank~(\cite{convent2020doo}), a functional programming designed with effect
-handlers at its core. We follow the design
+Frank~(\cite{lindley2017do, convent2020doo}), a functional programming designed
+with effect handlers at its core. We follow the design
 of~\aeff~(\cite{ahman2020asynchronous}), a small programming language designed
 around asynchronous effects but supporting little else.
 %
@@ -532,31 +537,9 @@ We show how by making a simple change to the semantics of Frank, in order to
 yield pre-emptible threads, we can recreate the asynchronous effect handling
 behaviour of \aeff~whilst still enjoying the benefits of traditional effect
 handlers.
-
-\todo{Last paragraph could be fixed}
-
-It is our hope that our approach could be recreated in another langauge equipped
-with effect handlers.
-
-% Frank is well-suited to implement an asynchronous effects library. The fine-grained control over suspended computations makes it easy to treat code as data, and support for higher-order effects
-% \todo{Something else after the and}
-% % Frank is a well-suited language for an asynchronous effects library, especially
-% % because of the fine-grained control over suspended computations, making it very
-% % easy to treat code as data.
-% %
-% Despite this, our approach does not use any specific
-% Frank features; furthermore, the changes made to the semantics of Frank are
-% easily recreateable. It is our hope that these methods could be recreated in
-% another language equipped with effect handlers.
-
-
-% \todo{Rewrite. Want to say that the change to the semantics is simple enough and
-%   the implementation simple enough that there should be no problems recreating
-%   our work in another language.}
-
-Effect handlers have
-already proven to make complicated control flow easy to implement
-(\textbf{refs}), and our work further cements this viewpoint.
+%
+Effect handlers have already shown to make complicated control flow easy to
+implement (\textbf{refs}), and our work further cements this viewpoint.
 
 Our contributions are as follows;
 
@@ -1968,14 +1951,14 @@ which point we start evaluating the next argument. The frozen term can then be
 bound to the catch-all pattern, if this is the pattern that matches.
 
 However, observe that the frozen term is automatically rehandled at the closest
-handler. This is problematic; if we had a handler for another effect, such as
-\code{state}, before the \code{suspend} handler. In this case, the handler below
-would automatically resume \code{runner} when it freezes; we would still have
-the same problem, as control would never rise to \code{suspend}. This problem
-would be solved if we had finer-grained control over when to resume a frozen
-computation.
+handler. This is problematic; we might have a handler for another effect, such
+as \code{State}, before the \code{suspend} handler. In this case, the handler
+below would automatically resume \code{runner} when it freezes; we would still
+have the same problem of starvation, as control would never rise to
+\code{suspend}. This problem would be solved if we had finer-grained control
+over when to resume a frozen computation, so we could choose to resume the frozen computation at \code{suspend} and not the lower-down handler.
 
-\todo{Rewrite above paragraph}
+% \todo{Rewrite above paragraph}
 
 \section{Yielding}
 \label{sec:inserting-yields}
@@ -2046,11 +2029,10 @@ $\EF~\allows~c = \textsf{false}$. In this case, it is defined as follows;
       \to}~\effout{\sigs}B})~(\many{t},[~],\many{n})~\allows~c =
   &~\ext_{|\many{t}|}~\allows~c ~ \\
   & \text{where}~\adj_{|\many{t}|} = \adapt_{|\many{t}|}\pipe\ext_{|\many{t}|} \\
-  \_\_\_~(\many{t}, [~], \many{n}) \allows c =& \textsf{false}
+  % \_\_\_~(\many{t}, [~], \many{n}) \allows c =& \textsf{false}
+  \underline{\hspace{3cm}}~(\many{t}, [~], \many{n})~\allows~c =& \textsf{false}
   %\adjact{\sigs}{\adj_{|\many{t}|}}{\sigs'}
 \end{align*}
-
-\todo{Fix long underscore}
 
 %% \noindent For an ability $\sigs = \seed\pipe\ext$, the predicate $\sigs~ \allows~c$ is true if
 %% $c \in I$ for some $I \in \ext$.
@@ -2165,15 +2147,28 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 
 \\
 \inferrule[R-Yield-Can]
-          { \EC~\textsf{allows}~\yield }
-          { \EC[m]; \yieldc~\redtou~\EC[\textsf{yield!}; m]; \justc{0} }
+          { \EF~\textsf{allows}~\yield }
+          { \EF[m]; \yieldc~\redtou~\EF[\textsf{yield!}; m]; \justc{0} }
 \\
 \inferrule[R-Yield-Can't]
-          { \neg (\EC~\textsf{allows}~\yield) \\
+          { \neg (\EF~\textsf{allows}~\yield) \\
             m; \justc{n} \redtou m'; \bluetext{c'} }
-          { \EC[m]; \yieldc~\redtou~\EC[m']; \yieldc }
-\\
-
+          { \EF[m]; \yieldc~\redtou~\EF[m']; \yieldc }
+% \\
+% \inferrule[R-Yield-Can't-UC]
+%           { \neg (\EF~\textsf{allows}~\yield) \\
+%             m; \justc{n} \redtou m'; \bluetext{c'} }
+%           { \EF[m]; \yieldc~\redtoc~\EF[m']; \yieldc }
+% \\
+% \inferrule[R-Yield-Can't-CC]
+%           { \neg (\EF~\textsf{allows}~\yield) \\
+%             n; \justc{n} \redtoc n'; \bluetext{c'} }
+%           { \EF[n]; \yieldc~\redtoc~\EF[n']; \yieldc }
+% \\
+% \inferrule[R-Yield-Can't-CU]
+%           { \neg (\EF~\textsf{allows}~\yield) \\
+%             n; \justc{n} \redtoc n'; \bluetext{c'} }
+%           { \EF[n]; \yieldc~\redtou~\EF[n']; \yieldc }
 \end{mathpar}
 }
 
@@ -2192,6 +2187,11 @@ counter is in the \yieldc~state. If the evaluation context allows \yield~
 commands to be inserted we do so and reset the counter. If not, but the term
 could otherwise reduce if the counter were of the form \justc{k}, then we make
 that transition, still maintaining the $\yieldc$ signal.
+
+Note that we have a family of 4 \textsc{R-Yield-Can't} rules, for each pair use
+/ construction inside the evaluation context, which can be a use or a
+constructio, in a similar way to the \textsc{R-Lift} rules in
+Chapter~\ref{chap:formalisation}. We omit these for brevity.
 
 All of the other rules from Figure~\ref{fig:operational-semantics} are then
 implicitly converted to $m; k \redtou m'; k$; that is to say they may reduce at
@@ -2217,7 +2217,7 @@ point. We can characterise this by saying that \countingfrank~\emph{implements}~
 implement the nondeterministic system. We have implemented the counting
 behaviour of \countingfrank~into the Frank interpreter.
 
-\begin{theorem}[\countingfrank~Implements Nondeterminism]~
+\begin{theorem}[\countingfrank~Implements \nondetfrank.]~
 %% \begin{restatable}[Counting Implements Nondeterminsim]{theorem}{countimplynondet}\label{thm:count-impl-nondet}
 \begin{itemize}
 \item For any use $m$ and counter $\counter$, if $m, \counter~\redtou~
@@ -2227,6 +2227,9 @@ behaviour of \countingfrank~into the Frank interpreter.
 \end{itemize}
 %% \end{restatable}
 \end{theorem}
+\begin{proof}
+  If we simply ignore the counters it's clear that any time we insert a \yield~command in \countingfrank, it is valid to also do so on \nondetfrank.
+  \end{proof}
 
 % One might consider a different approach, rather than a global counter, which
 % would also implement the nondeterministic semantics.
@@ -2452,7 +2455,7 @@ threshold we insert a yield command before the argument and reset the counter.
 We denote this system of \purefrank~equipped with the rules in
 Figure~\ref{fig:tree-counting} as \treefrank.
 
-\begin{theorem}[\treefrank~Implements Nondeterminism]~
+\begin{theorem}[\treefrank~Implements \nondetfrank.]~
 \begin{itemize}
 \item For any use $m$ if $m~\redtou~m'$ in \treefrank~then $m~\redtou~m'$ in
   \nondetfrank.
@@ -2467,7 +2470,7 @@ Figure~\ref{fig:tree-counting} as \treefrank.
 
 We walk through an example evaluation of \code{tree} in \treefrank. First,
 \code{echo "A "} reduces, increasing the counter at the upper \code{sched}
-handler. Once this counter passes the threshold, we insert a \yield~ before
+handler. Once this counter passes the threshold, we insert a \yield~before
 \code{echo "A "}; we now start evaluating the other branch, \code{sched (echo "B
   ") (echo "C ")}. While \code{echo "B "} reduces we increment the counter at
 both \code{sched} handlers. Both counters then pass the threshold at the same
@@ -2769,14 +2772,16 @@ completed and resulted in a value, \code{x}. The third option, \code{resume
   cont}, is used when a promise is awaited but has not yet completed; in this
 case, the handler for \code{await} writes the continuation of the caller to
 \code{resume}. The interrupt handler then automatically resumes this once it is
-fulfilled.
+fulfilled. Ideally, \code{Pid} should be an abstract type; the programmer should
+not be able to directly look inside an installed \code{Pid}. The only way the
+programmer should get the value out of a \code{Pid} is by awaiting the promise.
 
 % The
 % continuation \code{cont} is the continuation offered by the calling code when
 % the \code{await} effect is performed. We see how this is handled later in this
 % section. \todo{Maybe go over this?}
 
-\todo{Talk about caller not getting access to the Pid cell}
+% \todo{Talk about caller not getting access to the Pid cell}
 
 \begin{lstlisting}
 interface Promise S =
@@ -2803,8 +2808,6 @@ interface interrupt handlers also perfom \code{Console} effects and further
 as discussed in Chapter~\ref{chap:programming-in-frank}. A stack of installed
 interrupt handlers is kept for each thread.
 
-\todo{Talk about why it needs ref}
-
 The \code{signal} command takes a value of the \code{S} type and returns
 \code{unit}. When handling \code{signal sig}, all other threads are interrupted;
 they stop whatever they were doing, and all installed interrupt handlers now
@@ -2829,14 +2832,12 @@ with the stored value. At this point the cell should not have a continuation in
 it, as it's not possible for multiple threads to await a single promise. As
 such, we just safely exit.
 
-When a promise is fulfilled, it looks inside its associated \code{Prom} cell. If
-the status is just \code{waiting}, the promise just writes the returned value to
-the cell as \code{done x}. If there is a resumption in the cell, the promise
-immediately resumes it. There should not already be a \code{done x} value in the
-cell, as only the given promise and the handler for the promise interface should
-have access to it.
-
-\todo{Better thing for what we do if there's a continuation in there.}
+When a promise is fulfilled, it automatically looks inside its associated
+\code{Prom} cell. If the status is just \code{waiting}, the promise just writes
+the returned value to the cell as \code{done x}. If there is a resumption in the
+cell, the promise immediately resumes it. There should not already be a
+\code{done x} value in the cell, as only the given promise and the handler for
+the promise interface should have access to it.
 
 \section{In Action}
 
@@ -3037,9 +3038,11 @@ once we have this; we do not want to block everything else from running, rather
 perform this action asynchronously, when the promise is complete.
 
 \begin{lstlisting}
-futureList : {Pid R <@\greytext{[Promise]}@> -> {R -> <@\greytext{[Promise]}@> Z} -> Sig
-    -> Maybe {<@\greytext{[Promise]}@> Z}}
-futureList p comp (listSig _) = just { let res = await p in comp res}
+data Fut = newData (List Int) | result Int
+
+futureList : {Pid R <@\greytext{[Promise Fut]}@> -> {R -> <@\greytext{[Promise Fut]}@> Z} -> Sig
+    -> Maybe {<@\greytext{[Promise Fut]}@> Z}}
+futureList p comp (newData _) = just { let res = await p in comp res}
 futureList _ _ _ = nothing
 \end{lstlisting}
 
@@ -3049,9 +3052,9 @@ once we have a value (of type \code{R}) run the computation with this. An
 example computation using this system is;
 
 \begin{lstlisting}
-let recv = promise { (listSig xs) -> just {xs} | _ -> nothing} in
-let prod = promise {s -> futureList filt product s} in
-promise {s -> futureList prod {x -> signal (resultSig x)} s}
+let recv = promise { (newData xs) -> just {xs} | _ -> nothing} in
+let prod = promise {s -> futureList recv product s} in
+promise {s -> futureList prod {x -> signal (result x)} s}
 \end{lstlisting}
 
 \noindent Where we, upon receipt of a list signal, take the product of the list
@@ -3079,12 +3082,6 @@ arguments to this signal are the computation again, the call ID and the ID of
 the worker who is designated to run this task. Finally, the worker sends
 \code{result} signals when it has finished computing; arguments to this are the
 result and the call ID.
-
-% We first show how the caller communicates with the controller.
-
-% \todo{Introduce what all of the signals are ????}
-
-% \todo{Parametrise Async by the return type?}
 
 \begin{lstlisting}
 data Async R = result R Int | call {R} Int
@@ -3115,32 +3112,6 @@ worker who should perform it. The controller then installs a promise to update
 the active status of the corresponding worker once a \code{result} interrupt is
 received from the worker.
 
-% \code{call} signals are handled by the controller thread. This thread keeps
-% track of which of the workers do not currently have a task running, and
-% also installs a promise to set its state to idle once the corresponding
-% \code{result} message is received.
-
-
-% \begin{lstlisting}
-% onResult : {Ref (List (Maybe Int)) -> Int -> Sig
-%     -> Maybe {<@\greytext{[Promise]}@> Unit}}
-% onResult active wid (result res cid) =
-%     just { write active (putIn nothing wid (read active)) }
-% onResult _ _ _ = nothing
-% \end{lstlisting}
-
-% onAsyncBody : {Ref (List (Maybe Int)) -> {String} -> Int
-%     -> <@\greytext{[Promise]}@> Unit}
-% onAsyncBody active p callId =
-%     case (nextFree (read active))
-%         { nothing -> print "All workers are busy."
-%         | (just wid) ->
-%             write active (putIn (just callId) wid (read active));
-%             promise (prom {s -> onResult active wid s});
-%             signal (workIn p wid callId)};
-%     promise (prom {s -> onAsync active s}); unit
-% \end{lstlisting}
-
 Workers listen for a \code{work} interrupt; when one comes in with their ID in
 the payload, they simply perform the computation and send a \code{result} signal
 with the result. This \code{result} signal triggers the interrupt handler
@@ -3156,11 +3127,11 @@ easily write a handler for the \textsf{Cancel} effect, which just gets rid of
 the continuation and replaces it with some default value (e.g. \code{unit}).
 
 \begin{lstlisting}
-  interface Cancel = cancel : Unit
-i
-  hdlCancel : {<Cancel> Unit -> Unit}
-  hdlCancel <cancel -> _> = unit
-  hdlCancel unit          = unit
+interface Cancel = cancel : Unit
+
+hdlCancel : {<Cancel> Unit -> Unit}
+hdlCancel <cancel -> _> = unit
+hdlCancel unit          = unit
 \end{lstlisting}
 
 % \noindent We can use this to cancel a task issued with \code{async}. Recall that
@@ -3186,8 +3157,14 @@ canceller wid callId (cancelCall callId') =
 canceller _ _ _ = nothing
 \end{lstlisting}
 
-\noindent The \code{canceller} promise installs the \code{worker} promise before
-cancelling, so that the thread can one day run a task again. \todo{fix}
+% \noindent The \code{canceller} promise installs the \code{worker} promise before
+% cancelling, so that the thread can one day run a task again. \todo{fix}
+
+\noindent The \code{canceller} promise reinstalls the \code{worker} promise
+before cancelling, so that the thread can eventually run another task again
+after the current task is done. The controller also is modified to install an
+interrupt handler for \code{cancelCall} interrupts; this interrupt handler sets
+the corresponding worker's state to idle.
 
 % workProm : {Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
 % workProm wid (workIn p wid' callId) =
@@ -3210,16 +3187,13 @@ disappear.
 % handler code for promises, even though cancellation of calls and promises should
 % be orthogonal.
 
-However, we have to modify the handler for the \code{Promise} effect to
-correctly cancel threads.
-
-% However, we have to modify the handler for the \textsf{Promise} effect to
-% correctly cancel threads. When we fulfill a promise, we take the result
-% computation and compose this with the interrupted computation and rehandle this
-% single computation with the promise handler. At this point, we also now handle
-% \code{Cancel} effects, so that we remove the whole thread. This is a point for
-% improvement; handling the \code{Cancel} effect and handling \code{Promise}
-% effects are orthogonal, and should be treated separately.
+However, we have to modify the handler for the \textsf{Promise} effect to
+correctly cancel threads. When we fulfill a promise, we take the result
+computation and compose this with the interrupted computation and rehandle this
+single computation with the promise handler. At this point, we also now handle
+\code{Cancel} effects, so that we remove the whole thread. This is a point for
+improvement; handling the \code{Cancel} effect and handling \code{Promise}
+effects are orthogonal, and should be treated separately.
 
 % We have to modify the handler for the \textsf{Promise} effect for this. Recall
 % that when we install a promise, we convert it to a form that takes composes the
@@ -3249,55 +3223,23 @@ handler which listens for \code{result} interrupt; if a \code{result} interrupt
 corresponds to one of the installed threads we cancel the other thread using
 \code{cancelCall} and return the received result.
 
-%% \todo{Think of a better way to make reference to Daan's work}
-
-% \begin{lstlisting}
-% resultWaiter : {String -> Int -> Int -> Int
-%     -> Maybe {<@\greytext{[Promise]}@> String}}
-% resultWaiter res callNo callA callB =
-%     if (callNo == callA)
-%         { just { signal (cancelCall callB); res} }
-%         { if (callNo == callB)
-%             { just { signal (cancelCall callA); res} }
-%             { nothing }}
-
-% interleave : {{String} -> {String}
-%     -> Ref Int -> <@\greytext{[Promise]}@> Pid String <@\greytext{[Promise]}@>}
-% interleave procA procB callCounter =
-%     let callA = read callCounter in
-%     write callCounter (callA + 1);
-%     let callB = read callCounter in
-%     write callCounter (callB + 1);
-
-%     let ileaveWaiter =
-%         promise (prom {(result res callNo) ->
-%             resultWaiter res callNo callA callB
-%                       | _ -> nothing
-%         }) in
-
-%     signal (call procA callA);
-%     signal (call procB callB);
-
-%     ileaveWaiter
-% \end{lstlisting}
-
-% This will issue the two tasks on different threads. We then install an interrupt
-% handler for \code{result} signals; whichever result is received first we return
-% and cancel the other task.
-
 This lets us write timeouts for functions, where we interleave a potentially
 long-running request with a timer; we cancel the request if it takes too long.
 We can also run two identical requests to different services and just take the
-result of the one that returns first. The \code{interleave} operator can be
-composed with itself to yield the $n$-ary operator \code{interleave} operator.
+result of the one that returns first.
 
 % Despite \code{interleave} being a more complex function than \code{async}, we
 % can implement it with a small change to \code{async}.
 
-Observe the similarity of \code{interleave} and \code{async}. By taking
-asynchronous programming structures out of library code and into the
-programmer's hands, we hope that programmers will be able to more easily produce
-their own, useful tools.
+Observe that \code{interleave} is just a slight modification of \code{async} as
+defined earlier. By taking asychronous programming structures out of library
+code and into the programmer's hands, we hope that programmers will be able to
+easily craft their own tools.
+
+% Observe the similarity of \code{interleave} and \code{async}. By taking
+% asynchronous programming structures out of library code and into the
+% programmer's hands, we hope that programmers will be able to more easily produce
+% their own, useful tools.
 
 
 \chapter{Conclusion}
