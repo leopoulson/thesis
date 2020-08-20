@@ -465,18 +465,42 @@
 \author{Leo Poulson}
 
 \abstract{
-  Features for asynchronous programming are commonplace in the programming
-  languages of today, allowing programmers to issue tasks to run on other
-  threads and wait for the results to come back later. These features are often
-  built into the language, and are opaque to the user.
 
-  In this thesis we show how a library for asynchronous programming can be very
-  easily implemented in a language with existing support for effect handlers. We
-  show how, with a small change to the language implementation, truly
-  asynchronous programming with pre-emptive concurrency is achieved.
+  % Asynchronous programming features are commonplace in modern programming
+  % languages; one can request that a task is performed on another thread, perform
+  % some other computation, and then collect the results of the remote task later.
+  % Such features are often built into the language and are opaque black boxes
+  % from the perspective of the user.
 
-  Our system is expressive enough to define common asynchronous programming
-  constructs, such as async-await and futures, within the language itself.
+  We give an implementation of \citeauthor{ahman2020asynchronous}'s novel
+  \emph{asynchronous effects} abstraction, based on effect handlers. The crux of
+  this system is the decoupling of the invocation of an effect from the
+  resumption of the caller with the handled value.
+
+  We give an implementation in Frank, a language designed around effect
+  handlers. We give a series of simple modifications to Frank to allow for
+  pre-emptive concurrency, being the non-cooperative scheduling of several
+  threads.
+
+  Finally, we show how one can easily and elegantly implement many commonplace
+  features of modern programming languages --- such as async-await and futures
+  --- with asynchronous effects. Such structures are usually opaque black boxes
+  to users; we move them into the hands of the programmer.
+
+  % We show how the \emph{effect handlers} abstraction gives rise to . We describe an implementation of such a library and
+ 
+
+  % allowing programmers to issue tasks to run on other
+  % threads and wait for the results to come back later. These features are often
+  % built into the language, and are opaque to the user.
+
+  % In this thesis we show how a library for asynchronous programming can be very
+  % easily implemented in a language with existing support for effect handlers. We
+  % show how, with a small change to the language implementation, truly
+  % asynchronous programming with pre-emptive concurrency is achieved.
+
+  % Our system is expressive enough to define common asynchronous programming
+  % constructs, such as async-await and futures, within the language itself.
 }
 
 \maketitle
@@ -499,34 +523,35 @@ Effects, such as state and nondeterminism, are pervasive when programming; for a
 program to do anything beyond compute a pure mathematical function, it must
 interact with the outside world, be this to read from a file, make some random
 choice, or run concurrently with another program. Algebraic effects and their
-handlers (\cite{plotkin2013handling}) are a novel way to encapsulate, reason
-about and specify computational effects in programming languages. For instance,
-a program that reads from and writes to some local state can utilise the
-\textsf{State} effect, which supports two \emph{operations}; \textsf{get} and
-\textsf{put}. A handler for the \textsf{State} effect gives a meaning to these
-abstract operations. Programming with algebraic effects and handlers is
-increasingly popular; they have seen adoption in the form of libraries for
-existing languages (\cite{kammar2013handlers, kiselyov2013extensible,
-  brady2013programming}) as well as in novel languages designed with effect
-handling at their core (\cite{bauer2015programming, leijen2017type, convent2020doo}).
+handlers (\cite{plotkin2003algebraic, plotkin2013handling}) are a novel way to
+encapsulate, reason about and specify computational effects in programming
+languages. For instance, a program that reads from and writes to some local
+state can utilise the \textsf{State} effect, which supports two
+\emph{operations}; \textsf{get} and \textsf{put}. A handler for the
+\textsf{State} effect gives a meaning to these abstract operations. Programming
+with algebraic effects and handlers is increasingly popular; they have seen
+adoption in the form of libraries for existing languages
+(\cite{kammar2013handlers, kiselyov2013extensible, brady2013programming}) as
+well as in novel languages designed with effect handling at their core
+(\cite{bauer2015programming, leijen2017type, convent2020doo}).
 
 Traditional effect handling is \emph{synchronous}; when an operation is invoked,
-the rest of the computation pauses whilst the effect handler performs the
+the rest of the computation is blocked whilst the effect handler performs the
 requisite computation and then resumes the original caller.
 %
 For many effects, this blocking behaviour is not a problem; the handler usually
 returns quickly, and the user notices no delay. However, not every possible
-computational effect behaves like this. Consider an effect involving a query to
+computational effect behaves like this; consider an effect involving a query to
 a remote database. We might not want to block the rest of the computation whilst
 we perform this, as the query might take a long time; this case is even stronger
 if we do not immediately want the data. To support this kind of behaviour, we
 need to be able to invoke and handle effects in an asynchronous, non-blocking
-manner.
+manner; we characterise this as asynchronous effect handling.
 
 In this project we investigate the implementation and applications of
 asynchronous effect handling. Our lens for this is the language
 Frank~(\cite{lindley2017do, convent2020doo}), a functional programming designed
-with effect handlers at its core. We follow the design
+with effect handling at its code. We follow the design
 of~\aeff~(\cite{ahman2020asynchronous}), a small programming language designed
 around asynchronous effects but supporting little else.
 %
@@ -535,11 +560,11 @@ around asynchronous effects but supporting little else.
 % traditional effect handlers.
 We show how by making a simple change to the semantics of Frank, in order to
 yield pre-emptible threads, we can recreate the asynchronous effect handling
-behaviour of \aeff~whilst still enjoying the benefits of traditional effect
-handlers.
+behaviour of \aeff~whilst still enjoying the benefits of a language equipped
+with traditional effect handlers.
 %
 Effect handlers have already shown to make complicated control flow easy to
-implement (\textbf{refs}), and our work further cements this viewpoint.
+implement (\textbf{refs}), and our work further cements this.
 
 Our contributions are as follows;
 
@@ -574,11 +599,13 @@ asynchronous tasks with a \textsf{setTimeout} function supplied by the NodeJS
 backend.
 
 Multicore OCaml (\cite{dolan2014multicore}) also supports asynchronous
-programming through effect handling (\cite{dolan2017concurrent}). They handle
-effects and signals, which can be received asynchronously, and show how to
-efficiently and safely write concurrenct systems programs. However, in a similar
-way to Koka, the asynchrony relies on the operating system supplying operations,
-such as \textsf{setSignal} and \textsf{timer} signals.
+programming through effect handling (\cite{dolan2017concurrent}). The asynchronous behaviour of this approach relies on asynchronous signals performed by the operating system, such as a periodic \textsf{timer} message interrupting thread execution to yield pre-emptive concurrency.
+
+% They handle
+% effects and signals, which can be received asynchronously, and show how to
+% efficiently and safely write concurrenct systems programs. However, in a similar
+% way to Koka, the asynchrony relies on the operating system supplying operations,
+% such as \textsf{setSignal} and \textsf{timer} signals.
 
 A problem shared by both Koka and Multicore OCaml is they have no support for
 \emph{user-defined} asychronous effects; the asynchronous signals that can be
@@ -662,25 +689,35 @@ In Chapter~\ref{chap:conclusion} we conclude.
 \chapter{Programming in Frank}
 \label{chap:programming-in-frank}
 
-Frank is a typed functional programming language, designed around the
-definition, control and handling of algebraic effects. As such, Frank has an
-effect type system used to track which effects a computation may use.
+In this chapter we introduce Frank, and show why it is a well-suited language
+for implementing an asynchronous effect handling library. We assume some
+familiarity with typed functional programming, and skip over some common
+features of Frank --- algebraic data types, pattern matching, etc --- so we can
+spend more time with the novel, interesting parts; namely the definition,
+control and handling of algebraic effects and the fine-grained control over
+evaluation of computations.
 
-\todo{Extend this a bit - talk about ambient ability, computation vs. value, etc}
+% \todo{Talk about adaptors?}
 
-% Frank offers very fine-grained control over computations. It clearly
-% distinguishes between computation and value, and offers \emph{multihandlers} to
-% carefully control when computations are evaluated. This combined with effect
-% handling provides a very rich foundation for expressing complex control
-% structures.
+% Frank is a typed functional programming language, designed around the
+% definition, control and handling of algebraic effects. As such, Frank has an
+% effect type system used to track which effects a computation may use.
 
-In this chapter we introduce Frank, and show why it is so well-suited to our
-task. We assume some familiarity with typed functional programming, and skip
-over some common features of Frank --- algebraic data types, pattern matching,
-etc. --- so we can spend more time with the novel, interesting parts. We also
-skip some novel features of Frank, such as
-adaptors~(\cite{convent2017enhancing}), as they are not essential for
-understanding the work of this project.
+% \todo{Extend this a bit - talk about ambient ability, computation vs. value, etc}
+
+% % Frank offers very fine-grained control over computations. It clearly
+% % distinguishes between computation and value, and offers \emph{multihandlers} to
+% % carefully control when computations are evaluated. This combined with effect
+% % handling provides a very rich foundation for expressing complex control
+% % structures.
+
+% In this chapter we introduce Frank, and show why it is so well-suited to our
+% task. We assume some familiarity with typed functional programming, and skip
+% over some common features of Frank --- algebraic data types, pattern matching,
+% etc. --- so we can spend more time with the novel, interesting parts. We also
+% skip some novel features of Frank, such as
+% adaptors~(\cite{convent2017enhancing}), as they are not essential for
+% understanding the work of this project.
 
 % \section{Types, Values and Operators}
 \paragraph*{Types, Values and Operators}
@@ -699,8 +736,9 @@ A computation type
 %% type \code{Y}.
 describes an operator that takes $m$ arguments and returns a value of type
 \code{Y}. The return type also expresses the \emph{ability} the computation
-needs access to, being a list of $n$ \emph{interface} instances. An interface is
-a collection of \emph{commands} which are offered to the computation.
+needs access to, being a list of $n$ \emph{interface} instances; we explain
+abilities in more detail later in this chapter. An interface is a collection of
+\emph{commands} which are offered to the computation.
 
 % An ability is a
 
@@ -719,37 +757,14 @@ arguments. We can evaluate them --- performing the suspended computation ---
 with the 0-ary sequence of arguments, denoted \code{!}.
 %
 % Computations are suspended by wrapping them in braces.
-The opposite action --- suspending a computation --- is done by surrounding the computation in braces, such that for a suspended computation \code{comp}, \code{\{comp!\}} is the identity.
+The opposite action --- suspending a computation --- is done by surrounding the
+computation in braces.
+% , such that for a suspended computation \code{comp},
+% \code{\{comp!\}} is the identity.
 %
 This gives us fine-grained control over when we want to evaluate computations.
+For example, consider the operator \code{badIf} below:
 
-
-% For instance, we might want the sequential composition operator \code{snd} (also
-% commonly known as the semicolon operator);
-
-% \begin{lstlisting}
-%   snd : {X -> Y -> Y}
-%   snd x y = y
-% \end{lstlisting}
-
-% Frank is a left-to-right call-by-value language; arguments to functions are
-% evaluated from left-to-right, until they become a value. In the case of
-% \code{snd}, \code{x} is first evaluated, then \code{y}, which is finally
-% returned. Compare this to \code{if};
-
-% \begin{lstlisting}
-% if : {Bool -> {X} -> {X} -> X}
-% if true  yes no = yes!
-% if false yes no = no!
-% \end{lstlisting}
-
-% \noindent The branches are given as thunks, where a single thunk is evaluated
-% depending on the condition. If we did not take this approach both cases would be
-% evaluated, which is clearly not the intended semantics of \code{if}. Frank's
-% distinction between computation and value make controlling evaluation simple and
-% pleasing.
-
-Consider the operator \code{badIf} below;
 
 \begin{lstlisting}
 badIf : {Bool -> X -> X -> X}
@@ -761,7 +776,7 @@ badIf false yes no = no
 arguments to operators are evaluated from left-to-right until they become a
 value. As such, in the case of \code{badIf}, both of the branches will be
 evaluated before the result of one of them is returned. We can recover the
-correct semantics for \code{if} by giving the branches as thunks;
+correct semantics for \code{if} by giving the branches as thunks:
 
 \begin{lstlisting}
 if : {Bool -> {X} -> {X} -> X}
@@ -795,7 +810,9 @@ The interface declaration for \code{State X} expresses that \code{get} is a
 0-ary operation which is \emph{resumed} with a value of type \code{X}, and
 \code{put} takes a value of type \code{X} and is resumed with \code{unit}.
 Computations get access to an interface's commands by including them in the
-\emph{ability} of the program. Commands are invoked just as normal functions;
+\emph{ability} of the program; the computation then needs to be executed in an
+\emph{ambient ability} containing the corresponding interface. Commands are
+invoked just as normal functions;
 
 \begin{lstlisting}
   xplusplus : {[State Int] Unit}
@@ -803,8 +820,10 @@ Computations get access to an interface's commands by including them in the
 \end{lstlisting}
 
 \noindent This familiar program increments the integer in the state by 1.
+% The
+% type of \code{xplusplus} expresses that it needs to be executed in an
+% \emph{ability} containing the \code{State Int} interface.
 
-\todo{Talk about ABILITIES}
 
 \paragraph*{Handling Operations}
 
@@ -832,23 +851,38 @@ interface.
 %% value of type \code{X}, whilst the second argument is a value of type \code{S}.
 
 \noindent Observe that the type of \code{runState} contains \code{<State S>},
-called an \emph{adjustment}. This expresses that the first argument can perform
-commands in the \code{State S} interface, and that \code{runState} must handle
-these commands if they occur.
+called an \emph{adjustment}. This expresses that the first argument to
+\code{runState} has the \code{State S} interface added to its \emph{ambient
+  ability}. It also expresses that \code{runState} handles commands in the
+\code{State S} interface, using \emph{computation pattern matching}.
 
-\subparagraph*{Computation Patterns} The second and third lines specify how we
-handle \code{get} and \code{put} commands. Observe that we use a new type of
+\paragraph*{Computation Patterns} The second and third lines of \code{runState}
+specify how we handle \code{get} and \code{put} commands. We use a new type of
 pattern, called a \emph{computation pattern}; these are made up of a command and
-some arguments (which are also values), plus the continuation of the calling
-code. The types of arguments and the continuation are determined by the
-interface declaration and the type of the handler; for instance, in \code{<get
-  -> k>} the type of \code{k} is \code{\{S -> [State S] X\}}. The continuation
-can then perform more \code{State S} effects. This differs to some other
-implementations of effect handling languages (\cite{kammar2013handlers}) where
-the handlers can be \emph{deep}, meaning the continuation has been re-handled by
-the same handler automatically. Frank's \emph{shallow} handlers mean we have to
-explicitly re-handle the continuation, but have the benefit of giving more
-control over how we would like to do so.
+some arguments (which are also values, and can be pattern matched on), plus the
+continuation of the calling code. The types of arguments and the continuation
+are determined by the interface declaration and the type of the handler; for
+instance, in \code{<get -> k>} the type of \code{k} is \code{\{S -> [State S]
+  X\}}. The continuation can then perform more \code{State S} effects; this is
+characterised as \emph{shallow} effect handling.
+%
+This is in contrast to \emph{deep} handlers, where the continuation is
+automatically re-handled by the same handler. These are defined by folds ---
+specifically \emph{catamorphisms} (\cite{meijer1991functional}) --- over
+computation trees; this is attractive as they allow for efficient optimisations
+such as fusion of effect handlers (\cite{wu2015fusion}).
+% This differs to some other implementations of effect handling languages
+% (\cite{kammar2013handlers}) where the handlers can be \emph{deep}, meaning the
+% continuation has been re-handled by the same handler automatically. Frank's
+% \emph{shallow} handlers mean we have to explicitly re-handle the continuation,
+% however this gives us the benefit of
+Frank's \emph{shallow} handlers only handle the first instance of an operation;
+we then have to explicitly re-handle the continuation. This lets us choose to
+rehandle the computation in a non-standard way if we wish.
+
+In short, effect handling in Frank is essentially just a generalisation of
+traditional pattern matching to pattern matching on \emph{computations} as well.
+
 
 %% What happens when we run \code{runState xplusplus! 0}? When a computation is
 %% invoked, it is performed until it results in either a \emph{value} or a
@@ -887,8 +921,12 @@ same \code{runState} handler from before, and define a new handler for
   runRand _ x = x
 \end{lstlisting}
 
-\noindent And compose them in the comfortable manner, by writing \code{runRand
-  (runState xplusrand!)}.
+\noindent From its type, we see that \code{xplusrand} requires the ambient
+ability \code{[State Int, RandomInt]}. We can easily produce such an ability by
+composing the two handlers we have, incrementally extending the ambient ability.
+\cite{convent2017enhancing} gives a more detailed account of operator
+composition in Frank and the different cases that can arise.
+
 
 % Observe that the interaction between \code{xplusrand} and the handlers becomes
 % like a conversation; the caller asks the handler for a result and waits,
@@ -903,17 +941,16 @@ same \code{runState} handler from before, and define a new handler for
 %   semantics --- a la state + aborting}
 
 \paragraph*{Top-Level Effects}
-Some effects need to be handled outside of pure Frank, as Frank is not
+Some effects need to be handled by the Frank interpreter, as Frank is not
 expressive or capable enough on its own. Examples are console I/O, web requests,
 and ML-style state cells. These effects will pass through the whole stack of
 handlers up to the top-level, at which point they are handled by the
 interpreter.
 
 
-
 \paragraph*{Implicit Effect Polymorphism}
 
-Consider the type of the well-known function \code{map} in Frank;
+Consider the type of the well-known function \code{map}, implemented in Frank;
 
 \begin{lstlisting}
   map : {{X -> Y} -> List X -> List Y}
@@ -931,102 +968,25 @@ desugared type of \code{map} is actually:
   map : {{X -> [$\epsilon$|] Y} -> List X -> [$\epsilon$|] List Y}
 \end{lstlisting}
 
-\noindent This type expresses that whatever the ability is of \code{map f xs} will be
-offered to the element-wise operator \code{f}.
+\noindent Effect variables mean that operators can become \emph{effect
+  polymorphic}. This type expresses that whatever the ability is of \code{map f
+  xs} will be offered to the element-wise operator \code{f}.
 
-A similar thing happens in interface declarations; the interface \code{Co} below desugars to \code{CoVerbose}:
+A similar thing happens in interface declarations; the interface \code{Co} below
+desugars to \code{CoVerbose}:
 
 \begin{lstlisting}[mathescape]
 interface Co X            = fork : {[Co X] X} -> Unit
 interface CoVerbose X [$\epsilon$] = fork : {[$\epsilon$ | Co X [$\epsilon$|]] X} -> Unit
 \end{lstlisting}
 
-% As such, the following
-% typechecks;
-
-% \begin{lstlisting}
-%   writeRand : {List Int -> [RandomInt] List Int}
-%   writeRand xs = map {_ -> random!} xs
-% \end{lstlisting}
-
-% %% \todo{Talk about deliberately stopping this}
-
-% %% \todo{Talk about what the bar means. }
-
-% A similar thing happens in interface declarations. We might define the
-% \code{Choose} effect, which non-deterministically asks for one of two
-% computations to be picked for it to continue with;
-
-% \begin{lstlisting}
-%   interface Choose X =
-%       choose : {[Choose X] X} -> {[Choose X] X} -> X
-% \end{lstlisting}
-
-% \noindent This definition desugars to
-
-% \begin{lstlisting}[mathescape]
-%   interface Choose X [$\epsilon$] =
-%       choose : {[$\epsilon$| Choose X] X} -> {[$\epsilon$| Choose X] X} -> X
-% \end{lstlisting}
-
-% \noindent Once again, an implicit effect variable is inserted in every ability
-% available.
-
-%% \paragraph*{Synchronicity and Conversations}
-%% Observe how the interaction between the effect invoking function and the handler
-%% of this effect becomes like a conversation; the caller asks the handler for a
-%% response to an operation, and the caller will then wait, blocking, for a
-%% response. We characterise this as \emph{synchronous} effect handling; the
-%% operation caller and the handler synchronise to communicate.
-
-%% But what if we want to make a request for information, then do something else,
-%% then pick up the result later when we need it? This is the canonical example of
-%% asynchronous programming. It is not as simple as just invoking our e.g.
-%% \code{getRequest} effect; computation would block once this is invoked, meaning
-%% we are stuck waiting for the request to return. This sort of behaviour is
-%% exactly what we want to explore in this project.
-
-%% \todo{Move this elsewhere}
-
-%% \paragraph*{Multihandlers}
-
-%% Recall that in Frank pure functions are just the special case of handlers that
-%% handle no effects. Naturally, this notion extends to the $n$-ary case; we can
-%% handle multiple effects from different sources are once. Handlers which handle
-%% multiple effects simultaneously are unsurprisingly called \emph{multihandlers}.
-%% This lets us write functions such as \code{pipe} (example due to~\cite{convent2020doo});
-
-%% \begin{lstlisting}[numbers=left]
-%% interface Send X = send : X -> Unit
-%% interface Receive X = receive : X
- 
-%% pipe : {<Send X>Unit -> <Receive X>Y -> [Abort]Y}
-%% pipe <send x -> s> <receive -> r> = pipe (s unit) (r x)
-%% pipe <_> y = y
-%% pipe unit <_> = abort!
-%% \end{lstlisting}
-
-%% Line 5 states that \code{pipe} will handle all instances of the \code{Send}
-%% effect in the first argument, all instances of the \code{Receive} effect in the
-%% second, and might perform \code{Abort} commands along the way. The matching
-%% clauses are also new to the reader; line 6 implements the communication between
-%% the two functions. We reinvoke \code{pipe}, passing the payload \code{x} of
-%% \code{send} to the continuation of \code{r}. Lines 7 and 8 make use of the
-%% \emph{catch-all} pattern, \code{<m>}. This will match the invocation of any
-%% effect that is handled by that argument, or a value, binding this to \code{m}.
-%% In line 7, the catchall pattern matches either a \code{send} command or a value;
-%% in this case, the receiver has produced a value, so we can return that. In line
-%% 8 \code{<_>} matches either a value or a \code{receive}; but it must be a
-%% \code{receive} command, as the value case would have been caught above. The
-%% \code{abort} command is then invoked, as this is erroneous. A recovery strategy
-%% can be implemented by a handler for \code{Abort}.
 
 \paragraph*{Polymorphic Commands}
 
 As well as having polymorphic interfaces, such as \code{State X}, parametrised
-by e|.g.~the data stored in the state, Frank supports polymorphic
+by e.g.~the data stored in the state, Frank supports polymorphic
 \emph{commands}. These are commands which can be instantiated for any type. An
-example is ML-style references, realised through the \code{RefState} interface;
+example is ML-style references, realised through the \code{RefState} interface:
 
 \begin{lstlisting}
 interface RefState = new X   : X -> Ref X
@@ -1034,8 +994,8 @@ interface RefState = new X   : X -> Ref X
                    | write X : Ref X -> X -> Unit
 \end{lstlisting}
 
-\noindent For instance, \code{new X} can be instantiated by supplying a value as
-an argument. A \code{Ref X} cell is then returned as answer.
+\noindent where the type variables are determined based on the arguments supplied
+the operations.
 
 \section{Case Study: Cooperative Concurrency}
 \label{sec:concurrency}
@@ -1051,9 +1011,8 @@ operation's payload, but also the \emph{continuation} of the calling
 computation. For many effects, such as \code{getState}, nothing interesting
 happens to the continuation and it is just resumed immediately. But these
 continuations are first-class; they can resumed, but also stored elsewhere or
-even thrown away.
+even thrown away. We illustrate this with some examples of co-operative schedulers.
 
-We illustrate this with some examples of concurrency in this section.
 
 %
 %As such, by handling
@@ -1062,27 +1021,27 @@ We illustrate this with some examples of concurrency in this section.
 \subsection{Simple Scheduling}
 \label{subsec:simple-scheduling}
 
-We introduce some simple programs and some scheduling multihandlers, to
+We introduce some simple programs and some scheduling \emph{multihandlers}, to
 demonstrate how subtly different handlers generate different scheduling
-strategies.
+strategies. A multihandler is simply an operator that handles multiple effects from different sources simultaneously.
 
 \begin{lstlisting}
 interface Yield = yield : Unit
 
 words : {[Console, Yield] Unit}
-words! = print "one "; yield!; print "two "; yield!; print "three "; yield!
+words! = print "one "; yield!;
+         print "two "; yield!;
+         print "three "; yield!
 
 numbers : {[Console, Yield] Unit}
-numbers! = print "1 "; yield!; print "2 "; yield!; print "3 "; yield!
+numbers! = print "1 "; yield!;
+           print "2 "; yield!;
+           print "3 "; yield!
 \end{lstlisting}
 
 First note the simplicity of the \code{Yield} interface; we have one operation
 supported, which looks very boring; the operation \code{yield!} will just return
-unit. It is the way we \emph{handle} yield that is more interesting.
-
-We can write a \emph{multihandler} to schedule these two programs. A
-multihandler is simply an operator that handles multiple effects from different
-sources simultaneously.
+unit. It is the way we \emph{handle} yield that is more interesting. We can write a multihandler to schedule these two threads like so:
 
 \begin{lstlisting}[numbers=left]
 schedule : {<Yield> Unit -> <Yield> Unit -> Unit}
@@ -1095,13 +1054,14 @@ schedule _ _ = unit
 When we run \code{schedule words! numbers!} we read \code{one 1 two 2 three 3
   unit} from the console. What happened? First \code{words} is evaluated until
 it results in a \code{yield} command. Recall that Frank is a left-to-right
-call-by-value language; at this point, we start evaluating the second argument,
-\code{numbers}. This again runs until a \code{yield} is performed, where we give
-control again to the scheduler. Now that both arguments are commands or values
-we can proceed with pattern matching; the first case matches and we resume both
-threads, handling again. This process repeats until both threads evaluate to
-\code{unit}. In this way, we can imagine multihandler arguments as running in
-parallel and then \emph{synchronising} when pattern matching is performed.
+call-by-(command-or-)value language; at this point, we start evaluating the
+second argument, \code{numbers}. This again runs until a \code{yield} is
+performed, where we return control to the scheduler. Now that all arguments are
+commands or values we can proceed with pattern matching; the first case matches
+and we resume both threads, handling again. This process repeats until both
+threads evaluate to \code{unit}. In this way, we can imagine multihandler
+arguments as running in parallel and then \emph{synchronising} when all
+arguments perform commands and control returns to the multihandler.
 
 % If we omit line 2 we get quite a different result; the console output would be
 % \code{one 1 two three 2 3}. This is because both threads are first evaluated
@@ -1168,16 +1128,16 @@ parallel and then \emph{synchronising} when pattern matching is performed.
 
 We can make use of Frank's higher-order effects to dynamically create new
 threads at runtime. We strengthen the \code{Yield} interface by adding a new
-operation \code{fork};
+operation \code{fork}:
 
 \begin{lstlisting}
-  interface Co = fork : {[Co] Unit} -> Unit
-               | yield : Unit
+interface Co = fork : {[Co] Unit} -> Unit
+             | yield : Unit
 \end{lstlisting}
 
 The operation \code{fork} takes a suspended computation that can perform further
 \code{Co} effects and returns unit once handled. An example program using this
-interface is \code{forker};
+interface is \code{forker}:
 
 \begin{lstlisting}
 forker : {[Console, Co [Console]] Unit}
@@ -1191,41 +1151,27 @@ We can now choose a strategy for handling \code{fork} operations; we can either
 lazily run them, by continuing our current thread and then running the forked
 thread later, or eagerly run them, suspending the currently executing thread and
 running the forked process straight away. The handler for the former,
-breadth-first style of scheduling, is;
+breadth-first style of scheduling, is:
 
 \begin{lstlisting}
-scheduleBF : {<Co> Unit -> [Queue Proc] Unit}
+interface Queue = enqueue : {[Queue] Unit} -> Unit
+                | runNext : {[Queue] Unit}
+
+scheduleBF : {<Co> Unit -> [Queue] Unit}
 scheduleBF <fork p -> k> = enqueue {scheduleBF (<Queue> p!)};
-                           scheduleBF (k unit)
-scheduleBF <yield -> k>  = enqueue {scheduleBF (k unit)};
-                           runNext!
-scheduleBF unit          = runNext!
+    scheduleBF (k unit)
+scheduleBF <yield -> k> = enqueue {scheduleBF (k unit)};
+    (dequeue!)!
+scheduleBF unit =
+    (dequeue!)!
 \end{lstlisting}
 
-\noindent where the operations \code{enqueue} and \code{runNext} are offered by
-the \code{Queue} effect. We have to handle the computation \code{scheduleBF
-  forker!} with a handler for \code{Queue} effects afterwards. We can abstract
-over different queue handlers for even more possible program combinations.
-Moreover, notice how concisely we can express the scheduler; this is due to the
-handler having access to te continuation of the caller, and treating it as a
-first-class object that can be stored elsewhere.
-
-% We can see a diagram of how
-% \code{scheduleBF} treats continuations in Figure~\ref{fig:scheduleBF}, and a
-% similar diagram of how the depth-first handling differs in
-% Figure~\ref{fig:scheduleDF}.
-
-%% \begin{figure}
-%%   \centering
-%%   \begin{subfigure}
-%%     \includegraphics[width=0.8\textwidth]{imgs/scheduleBF.png}
-%%     \caption{Breadth-First scheduling}\label{fig:scheduleBF}
-%%   \end{subfigure}
-%%   \begin{subfigure}
-%%     \includegraphics[width=0.8\textwidth]{imgs/scheduleDF.png}
-%%     \caption{Depth-First scheduling}\label{fig:scheduleDF}
-%%   \end{subfigure}
-%% \end{figure}
+We have to handle the computation \code{scheduleBF forker!} with a handler for
+\code{Queue} effects afterwards. We can abstract over different queue handlers
+for even more possible program combinations. Moreover, notice how concisely we
+can express the scheduler; this is due to the handler having access to te
+continuation of the caller, and treating it as a first-class object that can be
+stored elsewhere.
 
 \chapter{Formalisation of Frank}
 \label{chap:formalisation}
@@ -1287,9 +1233,8 @@ Value types are either datatypes instantiated with type arguments
 $D~\overline{R}$, thunked computations $\thunk{C}$, or value type variables $X$.
 %
 Computation types are of the form
-
 \[
-  C = \effin{\adapt_1\pipe\ext_1}A_1 \to \dots \to \effout{\sigs} B
+  C = \effin{\adapt_1\pipe\ext_1}A_1 \to \dots \to \effin{\adapt_\pipe\ext_}A_ \to \effout{\sigs} B
 \]
 
 \noindent where a computation of type $C$ handles effects in $\ext_i$ or pattern
@@ -1297,7 +1242,9 @@ matches in $A_i$ on the $i$-th argument and returns a value of type $B$. $C$ may
 perform effects in ability $\sigs$ along the way.
 %
 The $i$-th argument to $C$ can perform effects in $\sigs$ adapted by adaptor
-$\adapt_i$ and augmented by extension $\ext_i$.
+$\adapt_i$ and augmented by extension $\ext_i$. We omit details on adaptors as
+they are present in previous work (\cite{convent2020doo}). The same goes for the
+typing rules, which do not change.
 
 An ability $\sigs$ is an extension $\ext$ plus a seed, which can be closed
 ($\nowt$) or open $\ev$. This lets us explicitly choose whether a function can
@@ -1308,9 +1255,6 @@ list of interfaces.
 %% skip over the typing rules, as they are standard. These can be seen in the
 %% appendix.
 
-We omit details on adaptors as they are present in previous work
-(\cite{convent2020doo}). The same goes for the typing rules, which we do not
-change.
 
 \begin{figure} %\figrule
 \centering
@@ -1365,8 +1309,9 @@ are made up of data constructor patterns $k~\many{p}$ or variable patterns $x$.
 The operational semantics uses the runtime syntax of
 Figure~\ref{fig:runtime-syntax}.
 %
-Uses and constructions are further divided into those which are values. Values
-are either variable or datatype instantiations, or suspended computations.
+Uses and constructions are further divided into those which are values and those
+which are not. Values are either variable or datatype instantiations, or
+suspended computations.
 %
 We also declare a new class of \emph{normal forms}, to be used in pattern
 binding. These are either construction values or \emph{frozen commands},
@@ -1375,10 +1320,10 @@ $\freeze{\EC[c~\many{R}~\many{w}]}$.
 %% with a special term $\freeze{\EC[c~\many{R}~\many{w}]}$, of \emph{frozen
 %%   commands}. We discuss these further later.
 Frozen commands are used to capture a continuation's \emph{delimited
-  continuation}. As soon as a command is invoked it becomes frozen. The entire
-rest of the computation around the frozen command then also freezes (in the same
-way that water behaves around ice), until we reach a handler for the frozen
-command.
+  continuation}, being the largest surrounding continuation up to where it is
+handled. As soon as a command is invoked it becomes frozen; the entire rest of
+the computation around the frozen command then also freezes (in the same way
+that water behaves around ice), until we reach a handler for the frozen command.
 
 Finally we have evaluation contexts, which are sequences of evaluation frames.
 The interesting case is $u~(\many{t}, [~],\many{n})$; it is this that gives us
@@ -1523,12 +1468,26 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
 \paragraph*{Pattern Binding}
 
 We now discuss the pattern binding rules of Figure~\ref{fig:pattern-binding}.
-The relation $\bindsv{p}{A}{w}{\venv}$ states that a value pattern $p$ of type $A$ matches normal form $w$ yielding substitution $\venv$. \textsc{B-Var} states that any pattern $w$ matches a value $x$, whilst \textsc{B-Data} states that a constructor pattern $k \many{w}$ matches a construction term $k \many{p}$ if each subpattern $p_{i}$ matches an argument to the construction $w_{i}$.
+The relation $\bindsv{p}{A}{w}{\venv}$ states that a value pattern $p$ of type
+$A$ matches normal form $w$ yielding substitution $\venv$. \textsc{B-Var} states
+that any pattern $w$ matches a value $x$, whilst \textsc{B-Data} states that a
+constructor pattern $k \many{w}$ matches a construction term $k \many{p}$ if
+each subpattern $p_{i}$ matches an argument to the construction $w_{i}$.
 
 
-The rules regarding $\bindsc{r}{T}{t}{\sigs}{\venv}$ are more interesting. \textsc{B-Value} defers computation pattern matching onto value pattern matching. \textsc{B-Request} expresses that a computation pattern $\effin{c~\many{p} \to z}$ matches a frozen computation $\freeze{\EC[c~\many{R}~\many{w}]}$ if command $c$ is handled by the evaluation context $\EC$, and if the arguments to the command each match a subpattern in the computation pattern.
+The rules regarding $\bindsc{r}{T}{t}{\sigs}{\venv}$ are more interesting.
+\textsc{B-Value} defers computation pattern matching onto value pattern
+matching. \textsc{B-Request} expresses that a computation pattern
+$\effin{c~\many{p} \to z}$ matches a frozen computation
+$\freeze{\EC[c~\many{R}~\many{w}]}$ if command $c$ is handled by the evaluation
+context $\EC$, and if the arguments to the command each match a subpattern in
+the computation pattern.
 
-The catchall pattern \code{<x>} matches any value and any command that is handled by the current evaluation context; \textsc{B-CatchAll-Value} and \textsc{B-CatchAll-Request} express this. Observe that \textsc{B-CatchAll-Request} has the same constraints as \textsc{B-Request}; the computation pattern only matches a command if it could otherwise be handled.
+The catchall pattern $\effin{x}$ matches any value and any command that is
+handled by the current evaluation context; \textsc{B-CatchAll-Value} and
+\textsc{B-CatchAll-Request} express this. Observe that
+\textsc{B-CatchAll-Request} has the same constraints as \textsc{B-Request}; the
+computation pattern only matches a command if it could otherwise be handled.
 
 \begin{figure}
 %% \figrule
@@ -1612,15 +1571,22 @@ $\boxed{\bindsc{r}{T}{t}{\sigs}{\venv}}$
 \section{Motivation}
 \label{sec:interrupt-motivation}
 
-Our scheduler in Section~\ref{sec:concurrency} relies on threads manually
-\yield{}ing. This is fine for simple examples, but when working with more
-complex programs this is inconvenient; the programmer must insert \yield{}s with
-a consistent frequency, so as to avoid process starvation. Furthermore, if we
-use external or library functions these will not hold yields, so will be
-uninterruptible. It would be simpler and fairer to just use some automatic way of
-\yield{}ing.
+Our schedulers in Section~\ref{sec:concurrency} rely on threads manually
+\yield{}ing. This co-operative concurrency can be problematic as it leaves the
+responsibility of inserting \yield{} commands to the programmer, who may leave
+them out or not disperse frequently enough. Even worse, the thread could get
+into some inescapable state without every \yield{}ing, starving other threads of
+processor time. It would be simpler, fairer and safer to just use some automatic
+way of \yield{}ing, thus taking the responsibility away from the programmer. We express threads that automatically have \yield~commands inserted as \emph{pre-emptible} threads; we describe concurrency using pre-emptible threads as \emph{pre-emptive concurrency}.
 
-\todo{Redo above}
+% This is fine for simple examples, but when working with more
+% complex programs this is inconvenient; the programmer must insert \yield{}s with
+% a consistent frequency, so as to avoid process starvation. Furthermore, if we
+% use external or library functions these will not hold yields, so will be
+% uninterruptible. It would be simpler and fairer to just use some automatic way
+% of \yield{}ing.
+
+% \todo{Do we need to explicitly say THIS IS PRE EMPTIVE CONCURRENCY?}
 
 %% One important part of our asynchronous effect handling system is the ability to
 %% interrupt arbitrary computations. If two threads are running concurrently and
@@ -1629,15 +1595,14 @@ uninterruptible. It would be simpler and fairer to just use some automatic way o
 %% Section~\ref{sec:concurrency}, however we would prefer for this behaviour to be
 %% done automatically.
 
-Consider the two programs below;
+Consider the two programs below:
 
 \begin{lstlisting}
 interface Stop = stop : Unit
 interface Go = go : Unit
 
 controller : {[Stop, Go, Console] Unit}
-controller! =
-    stop!; print "stop!" ; sleep 200000; go!; controller!
+controller! = stop!; print "stop!" ; sleep 200000; go!; controller!
 
 runner : {Int -> [Console] Unit}
 runner x = printInt x; runner (x + 1)
@@ -1649,13 +1614,12 @@ runner x = printInt x; runner (x + 1)
 %% control the execution of \code{runner}.
 
 \noindent We want a multihandler that uses the \code{stop} and \code{go}
-commands from \code{controller} to control the execution of \code{runner}. The desired console output is \code{1 2 3 ... (n-1) n stop! (n + 1) ...}, running infinitely.
-% desired console output is some sequence of numbers with \code{stop} printed out
-% in the middle every once in the
-
-The problem as it stands is that there is no way for \code{runner} to be
-suspended whilst it is running; it will just infinitely run, never giving
-control to the handler or to \code{controller}.
+commands from \code{controller} to control the execution of \code{runner}. The
+desired console output is \code{1 2 3 ... n stop! (n + 1) ...}, running
+infinitely. The problem as it stands is that there is no way for \code{runner}
+to be suspended whilst it is running; it will just infinitely run, never
+reducing to a value and thus never giving control to the handler or to
+\code{controller}.
 
 % There
 % are several possible interleavings of
@@ -1702,10 +1666,10 @@ Section~\ref{subsec:simple-scheduling}; \code{runner} is evaluated until it
 becomes a command or a value, and then \code{controller} is given the same
 treatment. Once both are a command or a value, pattern matching is done.
 
-In this way we use \yield~commands to split up our computations and let
-processing time be given to other computations. The closest handler for
-\yield~operations then gets access to the continuation of \code{runner} and can
-choose how to handle it.
+% In this way we use \yield~commands to split up our computations and let
+% processing time be given to other computations. The closest handler for
+% \yield~operations then gets access to the continuation of \code{runner} and can
+% choose how to handle it.
 
 We are, however, still operating co-operatively; the programmer has to manually
 insert \yield~commands. Furthermore, in this case we \yield~far too often; it would be more efficient to have a consistent, yet longer, period in between each \yield~command.
@@ -1716,10 +1680,11 @@ As such, we continue searching for a better solution.
 \label{sec:relaxing-catches}
 
 One approach is to relax the rules for pattern matching with the catchall
-pattern $\effin{x}$. This would let us match generic commands that may not be
-handled by the current handler. The key to implementing this lies in the pattern
-binding rules of Figure~\ref{fig:pattern-binding}; specifically
-\textsc{B-CatchAll-Request}.
+pattern $\effin{x}$. Currently the catchall pattern only matches commands that
+the handler would otherwise handle; we propose relaxing the rules to match
+\emph{any} command, that may not be handled by the current handler. The key to
+implementing this lies in the pattern binding rules of
+Figure~\ref{fig:pattern-binding}; specifically \textsc{B-CatchAll-Request}.
 
 %% The key to this lies in the catchall pattern, $\effin{x}$, and the pattern
 %% binding rules of Figure~\ref{fig:pattern-binding}; specifically
@@ -1733,7 +1698,7 @@ binding rules of Figure~\ref{fig:pattern-binding}; specifically
 The crux is that the command $c$ that is invoked in the frozen term
 $\freeze{\EC[c~\many{R}~\many{w}]}$ must be a command offered by the extension
 $\ext$; that is, it must be handled by the current use of \textsc{R-Handle}.
-Refer back to the example of Section~\ref{sec:interruption-motivation}. This
+Refer back to the example of Section~\ref{sec:interrupt-motivation}. This
 rule means that the catch-all pattern \code{<_>} in the final pattern matching
 case of \code{suspend} can match against \code{stop} or \code{go}, as they are
 present in the extension of the second argument, but not \code{print} commands;
@@ -1777,14 +1742,9 @@ Figure~\ref{fig:loose-catchall-request}. The key constraint that has been
 removed is $c : \forall \many{Z}. \many{B \to}~B' \in \ext$, which requires that
 the frozen command must be present in the argument extension $\ext$. The
 constraint $\EC \poised c$ just states that the evaluation context containing
-the frozen command will handle $c$; we do away with this, as we do not
-necessarily want to handle the command here.
-
-% This lets us update the previous
-% \code{suspend} code to the following, which yields the same results as last
-% time;
-
-This lets us change \code{runner} back to its original form, and update \code{suspend} like so;
+the frozen command will handle $c$; we also do away with this, as we do not
+necessarily want to handle the command here. This lets us change \code{runner}
+back to its original form, and update \code{suspend} like so:
 
 \begin{lstlisting}
 runner : {Int -> [Console] Unit}
@@ -1835,7 +1795,7 @@ pattern $\effin{x}$; the suspended, thawed computation $\thunk{m}$ is then bound
 to $x$ in the continuation.
 
 
-\begin{figure}
+\begin{figure}[t]
 %% \figrule
 \centering
 \scalebox{\figscale}{%
@@ -1866,12 +1826,12 @@ to $x$ in the continuation.
 \end{figure}
 
 
-\begin{figure}
+\begin{figure}[t]
 %% \figrule
-\scalebox{\figscale}{%
-\flushleft
-$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'}$
-}
+% \scalebox{\figscale}{%
+% \flushleft
+% $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'}$
+% }
 
 \scalebox{\figscale}{%
 \centering
@@ -1897,7 +1857,7 @@ $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'}$
 %% \figrule
 \end{figure}
 
-\begin{figure}
+\begin{figure}[t]
 %% \figrule
 \flushleft
 
@@ -1952,11 +1912,12 @@ bound to the catch-all pattern, if this is the pattern that matches.
 
 However, observe that the frozen term is automatically rehandled at the closest
 handler. This is problematic; we might have a handler for another effect, such
-as \code{State}, before the \code{suspend} handler. In this case, the handler
-below would automatically resume \code{runner} when it freezes; we would still
-have the same problem of starvation, as control would never rise to
+as \code{runState}, before the \code{suspend} handler. In this case,
+\code{runState} would automatically resume \code{runner} when it freezes; we
+would still have the same problem of starvation, as control would never rise to
 \code{suspend}. This problem would be solved if we had finer-grained control
-over when to resume a frozen computation, so we could choose to resume the frozen computation at \code{suspend} and not the lower-down handler.
+over when to resume a frozen computation, so we could choose to resume the
+frozen computation at \code{suspend} and not at \code{runState}.
 
 % \todo{Rewrite above paragraph}
 
@@ -1971,37 +1932,23 @@ turns out that we can get the exact same behaviour by just inserting a command
 invocation into the term instead, and handling this as normal.
 %
 
-Once again, the simple $\Yield = \yield : \textsf{Unit}$ interface from
-Section~\ref{sec:concurrency} can be used here. Whilst the interface itself
-sounds very boring, its use here comes from the fact it freezes the rest of the
-computation around it up until the next \Yield~handler.
-% Recall the simple \Yield~effect from Section~\ref{sec:concurrency}; it
-% supports one operation, $\yield : \textsf{Unit}$.
-% %
-% Whilst it sounds boring from the type, remember that the invocation of an effect
-% offers up the continuation of the program as a first-class value, so that they
-% might concurrently run the function with other functions or control execution by
-% some other means.
-
-% Our solution is simple; whenever we are in an evaluation context where the
-% ability contains the \Yield effect, we insert an invocation of \yield before the
-% term in question. This is expressed formally in Figure~\ref{fig:insert-yield}.
-% We refer to this system as \nondetfrank.
-
-Our new system is simple; whenever a term reduces underneath a handler for
-\Yield effects, we insert an invocation of the \yield command before the reduct.
-This is expressed formally in Figure~\ref{fig:insert-yield}. We refer to
-\purefrank~as described in Chapter~\ref{chap:formalisation} supplemented with
-this rule as \nondetfrank.
+Once again, the simple \Yield interface from Section~\ref{sec:concurrency} can
+be used here. Whilst the interface itself sounds very boring, its use here comes
+from the fact it freezes the rest of the computation around it up until the next
+\Yield~handler. Our new system is simple; whenever a term reduces underneath a
+handler for \Yield effects, we insert an invocation of the \yield command before
+the reduct. This is expressed formally in Figure~\ref{fig:insert-yield}. We
+refer to \purefrank~as described in Chapter~\ref{chap:formalisation}
+supplemented with this rule as \nondetfrank.
 
 % \todo{Add rules for eval ctxs converting use to const, use to use, etc}
 
 \begin{figure}[h]
 %% \figrule
-\scalebox{\figscale}{%
-\flushleft
-$\boxed{n \redtou n'} $
-}
+% \scalebox{\figscale}{%
+% \flushleft
+% $\boxed{n \redtou n'} $
+% }
 
 \scalebox{\figscale}{%
 \begin{mathpar}
@@ -2021,7 +1968,7 @@ $\boxed{n \redtou n'} $
 \end{figure}
 
 Note that \textsc{R-Yield-EF} relies on the predicate $\EF~\allows~c$. For any
-frame apart from argument frames (i.e. $u (\many{t}, [~], \many{n})$),
+frame apart from argument frames (i.e. $u~(\many{t}, [~], \many{n})$),
 $\EF~\allows~c = \textsf{false}$. In this case, it is defined as follows;
 
 \begin{align*}
@@ -2047,20 +1994,18 @@ would be allowed to yield but the second would not.
 
 We also make use of an auxiliary combinator $\_ ; \_$. This is the traditional
 sequential composition operator $\textsf{snd}~x~y~\mapsto~y$, where both
-arguments are evaluated and the result of the second one is returned. We see
-that it would be a type error if we were to insert a \code{yield} command in a
-context where \yield~was not a part of the ability. In the context of
-\textsc{R-Yield-EF} this means we will perform the \yield~operation and then the
-use $m$, but discard the result from \yield.
+arguments are evaluated and the result of the second one is returned. In the
+context of \textsc{R-Yield-EF} this means we will perform the \yield~operation
+and then the use $m$, but discard the result from \yield.
 
 Observe that this gives us fine-grained control over which parts of our program
 are pre-emptible.
 % One might want a short-running function to not be pre-emptible
 % and just run without pause; conversely, one might want a long-running function
 % to be interruptible.
-The programmer can easily toggle this by labelling the pre-emptible threads with
-\yield in the ability. This is one improvement over the system of
-Section~\ref{sec:freezing-terms}; previously every thread was interruptible.
+The programmer can simply insert \Yield~into the adjustment of the multihandler
+arguments which should be pre-emptible. This is one improvement over the system
+of Section~\ref{sec:freezing-terms}; previously every thread was interruptible.
 Another benefit is that we define fewer new rules and constructs. We also
 benefit from the choice of when to resume a computation; in the previous system
 computations were automatically unfrozen at the nearest handler, but this
@@ -2102,10 +2047,9 @@ Furthermore, it is non-deterministic; we often have the choice of either
 
 To combat this we supplement the operational semantics with a counter
 $\counter$. This counter has two states; it could either be counting up, which
-is the form $\justc{n}$ for some $n$, or it is a signal to yield as soon as
-possible, which is the form $\yieldc$. To increment this counter, we use a
-slightly modified version of addition, denoted $\plusc$. This is simply defined
-as
+is the form $\justc{n}$ for some $n$, or a signal to yield as soon as possible,
+which is the form $\yieldc$. To increment this counter, we use a slightly
+modified version of addition, denoted $\plusc$. This is simply defined as:
 
 \begin{equations}
   x \plusc y =
@@ -2118,17 +2062,19 @@ as
 \noindent where $\threshc$ is the threshold at which we force a yield.
 
 The transitions in our operational semantics now are of the form
-$m; \counter \redtou m'; \counter \bluetext{'}$. In Figure~\ref{fig:counting-rules} we give
-an updated rule for \textsc{R-Handle} --- overwriting the previous rule --- and
-two new rules for inserting yields. We refer to \purefrank~extended with the rules in Figure~\ref{counting-rules} as \countingfrank.
+$m; \counter \redtou m'; \counter \bluetext{'}$. In
+Figure~\ref{fig:counting-rules} we give an updated rule for \textsc{R-Handle}
+--- overwriting the previous rule --- and two new rules for inserting yields. We
+refer to \purefrank~extended with the rules in Figure~\ref{fig:counting-rules} as
+\countingfrank.
 
 \begin{figure}
 %% \figrule
-\scalebox{\figscale}{%
-\flushleft
-$\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
-    \stepstou m'} \quad \boxed{n \stepstoc n'}$
-}
+% \scalebox{\figscale}{%
+% \flushleft
+% $\boxed{m \redtou m'} \quad \boxed{n \redtoc n'} \quad \boxed{m
+%     \stepstou m'} \quad \boxed{n \stepstoc n'}$
+% }
 
 \scalebox{\figscale}{%
 \begin{mathpar}
@@ -2183,39 +2129,39 @@ incrementing the counter by 1. Here we use $\plusc$, which will set the counter
 to be $\yieldc$ if increasing the counter brings it over the threshold value.
 
 \textsc{R-Yield-Can} and \textsc{R-Yield-Can't} dictate what to do if the
-counter is in the \yieldc~state. If the evaluation context allows \yield~
+counter is in the \yieldc~state. If the evaluation context allows \yield{}
 commands to be inserted we do so and reset the counter. If not, but the term
 could otherwise reduce if the counter were of the form \justc{k}, then we make
 that transition, still maintaining the $\yieldc$ signal.
 
-Note that we have a family of 4 \textsc{R-Yield-Can't} rules, for each pair use
-/ construction inside the evaluation context, which can be a use or a
-constructio, in a similar way to the \textsc{R-Lift} rules in
+Note that we have a family of 4 \textsc{R-Yield-Can't} rules, for each pair of
+use or construction inside the evaluation context, which can be a use or a
+construction, in a similar way to the \textsc{R-Lift} rules in
 Chapter~\ref{chap:formalisation}. We omit these for brevity.
 
 All of the other rules from Figure~\ref{fig:operational-semantics} are then
-implicitly converted to $m; k \redtou m'; k$; that is to say they may reduce at
-any point regardless of the state of the counter, but they do \emph{not} change
-the value of the counter.
+implicitly converted to $m; \counter \redtou m'; \counter$ or
+$n; \counter \redtoc n'; \counter$; they may reduce at any point
+regardless of the state of the counter, but they do \emph{not} change the value
+of the counter.
 
 \citeauthor{dolan2017concurrent} take a similar approach to this when
 investigating asynchrony in Multicore OCaml (\cite{dolan2017concurrent}). They
 rely on the operating system to provide a timer interrupt, which is handled as a
 first-class effect. Our system is more self-contained; the timing is implemented
 within the language itself and doesn't rely on the operating system providing
-interrupts. Furthermore, we get fine-grained control over when the timer can
-fire, as we can choose to put \yield~in the ability of interruptible
-terms.
+interrupts. Furthermore, we get control over when the timer can fire, as we can
+choose to put \Yield~in the ability of interruptible terms.
 
 \paragraph*{Determinism}
 Observe that the semantics of Frank equipped with the rules in
 Figure~\ref{fig:counting-rules} are now deterministic; for any term and counter
 pair, there is only one possible reduction we can make. This is helpful for the
-sake of implementation; it is always clear which reduction to make at any
-point. We can characterise this by saying that \countingfrank~\emph{implements}~
-\nondetfrank; that is to say the counting system gives a deterministic way to
-implement the nondeterministic system. We have implemented the counting
-behaviour of \countingfrank~into the Frank interpreter.
+sake of implementation; it is always clear which reduction to make at any point.
+We can characterise this by saying that \countingfrank~\emph{implements}~
+\nondetfrank; the counting system gives a deterministic way to implement the
+nondeterministic system. We have implemented the counting behaviour of
+\countingfrank~into the Frank interpreter.
 
 \begin{theorem}[\countingfrank~Implements \nondetfrank.]~
 %% \begin{restatable}[Counting Implements Nondeterminsim]{theorem}{countimplynondet}\label{thm:count-impl-nondet}
@@ -2267,8 +2213,8 @@ as normal.
 
 We might also want to make the controller --- being the second argument ---
 preemptible; it might do some other computation in between performing
-\code{stop} and \code{go} operations. We have to add \Yield to the adjustment at
-the second argument, but also more pattern matching cases.
+\code{stop} and \code{go} operations. We have to add \Yield~to the adjustment at
+the second argument, but also add more pattern matching cases.
 
 \begin{lstlisting}[]
 suspend <yield -> r> <yield -> c> p = suspend (r unit) (c unit) p
@@ -2302,12 +2248,14 @@ suspend <r>          <c>          p = suspend r! c! p
 These let \yield~commands synchronise with each other, achieving fair
 scheduling, as discussed in Section~\ref{sec:concurrency}. It is annoying to
 write these by hand, as they take up a lot of space and are orthogonal to the
-rest of the logic of the handler. It is fortunate that this process of resuming
-as many yields as possible can be automated completely. Given a multihandler
-with $m$ arguments, $n$ of which have \Yield~in their adjustment, we first try
-to resume and rehandle all $n$ \yield~commands. After this we try to resume all
-of the different permutations of $n-1$ \yield~commands, and so on until we are
-trying to resume 0 \yield~commands.
+rest of the logic of the handler.
+
+Fortunately, this process of resuming as many yields as possible can be
+automated completely. Given a multihandler with $m$ arguments, $n$ of which have
+\Yield~in their adjustment, we first try to resume and rehandle all $n$
+\yield~commands. After this we try to resume all of the different permutations
+of $n-1$ \yield~commands, and so on until we are trying to resume 0
+\yield~commands.
 %
 %The resuming clauses for the 3-ary case can be seen below.
 
@@ -2333,7 +2281,7 @@ we do not want to interfere with this. This means we can program in a simpler,
 direct manner, easily toggling which arguments should be interruptible by adding
 \Yield~to the corresponding interface. Automatically inserting \yield-handling
 clauses when combined with automatically \emph{inserting} \yield~commands then
-gives us pre-emptive concurrency at very little overhead to the programmer.
+gives us pre-emptive concurrency at very little overhead.
 
 \section{Starvation}
 \label{sec:starvation}
@@ -2376,6 +2324,7 @@ to a multihandler reduces when the counter is over the threshold, we insert a
 % \todo{Finish this!}
 
 \begin{figure}
+\centering
 \scalebox{\figscale}{%
 
 \begin{mathpar}
@@ -2390,7 +2339,6 @@ to a multihandler reduces when the counter is over the threshold, we insert a
   {\cu (\thunk{((r_{i,j})_j \to n_i)_i} \bluetext{@ c} : \thunk{\many{\effin{\adj} A \to}~\effout{\sigs}B})~\many{t} \redtou \cu ((\many{\venv}(n_k) : B)}
  
 \\
-
 \inferrule[Arg-Increment]
   { %k = \min_i\,\{i \mid \exists \many{\venv}.(\bindsc{r_{i,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j}\} \\
     %(\bindsc{r_{k,j}}{\effin{\adj_j} A_j}{t_j}{\sigs}{\venv_j})_{j} \\
@@ -2398,12 +2346,14 @@ to a multihandler reduces when the counter is over the threshold, we insert a
     %\highlight{\exists i. \Yield \in \ext_i \text{ for } \adj_i = \adapt_i\pipe\ext_i  }
     % \forall~j\leq~n~.~\bluetext{c_j} \not = \yieldc
     n \redtoc n'
-  } { \cu (\thunk{((r_{i,j})_j \to n_i)_i}  {\bluetext{@ c}} : \thunk{\many{\effin{\adj} A
+  }
+  { \cu (\thunk{((r_{i,j})_j \to n_i)_i}  {\bluetext{@ c}} : \thunk{\many{\effin{\adj} A
         \to}~\effout{\sigs}B})~(\many{t}, n, \many{n})
     \redtou \\
      \cu (\thunk{((r_{i,j})_j \to n_i)_i } {\bluetext{@} (\textsf{incOrReset}(\bluetext{c}, \adj_{|\many{t}|}))} : \thunk{\many{\effin{\adj} A
         \to}~\effout{\sigs}B})~(\many{t}, {\textsf{maybeYield}(n', \bluetext{c}, \adj_{|\many{t}|})}, \many{n})
        }
+  \\
 \end{mathpar}
 }
 \caption{Updated Counting Rules}
@@ -2478,8 +2428,8 @@ time. At this point the system can either choose to insert a \yield~at either of
 the two \code{sched} handlers; let's consider it chooses to insert one at the
 upper handler. Then \code{echo "A "} is evaluated again as before. Once we
 resume computing \code{sched (echo "B ") (echo "C ")} the counter state is
-\emph{maintained}, so we immediately \yield~and evaluate \code{echo "C "} and
-continue.
+\emph{maintained}, so we immediately \yield, give control to \code{echo "C "}
+and continue.
 
 In our implementation of \treefrank, we avoid the nondeterminism caused by
 multiple multihandler trying to \yield~by always choosing the lowest multihandler.
@@ -2489,8 +2439,6 @@ time. However, if we have a lot of deeply-nested handlers, a thread might have
 to wait a long time to get processor time. It would be good to have a system
 where we can express a bound on the amount of time that will pass before a
 thread gets processor time; this remains as future work.
-
-\todo{Rewrite above.}
 
 \section{Soundness}
 
@@ -2573,29 +2521,26 @@ Section~\ref{sec:type-soundness-proofs}.
 %% Our design closely follows \aeff~(\cite{ahman2020asynchronous}), a language
 %% designed around writing multithreaded programs using asycnhronous effects.
 
-In this section we give a brief introduction to programming with asynchronous
-effects, and introduce the Frank library for doing so.
+% In this section we give a brief introduction to programming with asynchronous
+% effects, and introduce the Frank library for doing so.
+In this section we introduce the asynchronous effects abstraction, and introduce
+the Frank library for programming with them.
 %
-Our design closely follows \aeff~(\cite{ahman2020asynchronous}).
+Our design closely follows \aeff~(\cite{ahman2020asynchronous}), the only
+existing implementation for programming with user-defined asynchronous effects.
 
 One can consider the traditional treatment of shallow effect handling as having
 three stages. First an operation \textsf{op} is invoked, with arguments $V$ and
 continuation $\lambda x . M$. Then the handler for \textsf{op} --- being the
-\emph{implementation} of \textsf{op} --- is evaluated until it returns some
-value $V$. Finally, the continuation of the caller is resumed by binding $V$ to
-$x$ in $M$.
-
-% \todo{Check the maths here}
+\emph{implementation} of \textsf{op} --- is evaluated with arguments $V$ until
+it returns some value $W$. Finally, the continuation of the caller is resumed by
+binding $W$ to $x$ in $M$, where this resumed continuation is possibly rehandled
+or in some other context.
 
 What makes effect handling \emph{synchronous} is that the operation call
 \textsf{op} \emph{blocks} until the continuation $M$ is resumed. This means that
-for \emph{every} algebraic effect, the rest of the computation has to wait for
+for \emph{every} algebraic effect, the rest of the calling code has to wait for
 the handler to be performed, even when the results are not immediately needed.
-% What makes effect handling \emph{synchronous} is that the three stages above
-% happen in order and straight away. As soon as \textsf{op} is invoked, the
-% handler is evaluated with the arguments to \textsf{op}. As soon as the handler
-% has reduced to a value, the continuation is resumed. \todo{Rewrite this bit.}
-
 The \emph{asynchronous} treatment of effect handling decouples these three
 stages; each of invoking an effect, evaluation of the handler, and resumption of
 the caller are separate.
@@ -2603,13 +2548,11 @@ the caller are separate.
 % This permits the non-blocking invocation of effects; we invoke an operation and
 % can continue the rest of the computation before the operation has been handled.
 This permits the non-blocking invocation of effects; we can invoke an operation,
-continue with other work, then when (or even if) we need the result of the
-operation we can choose to block.
+continue with other work, then if and when we need the result of the operation
+we can choose to block.
 %
 % The decoupling of operation invocation from handling has other benefits that we
 % discuss later in this section.
-
-\todo{I'm not convinced by the use of ``the rest of the computation''}
 
 % Consider effect handling as a simple two threaded application; one thread is the
 % caller, which invokes some operation \textsf{op}, and the other is the handler
@@ -2621,9 +2564,10 @@ operation we can choose to block.
 
 Asynchronous effects are used for writing multithreaded programs. A single
 thread might handle some operations and also perform other ones, which
-themselves are handled by other threads. In the rest of this section we explain
-this behaviour by example, and introduce our library for programming with
-asynchronous effects in Frank.
+themselves are handled by other threads. Rather than the binary division of
+caller and handler, a single thread can both invoke and handle asynchronous
+operations. In the rest of this section we explain this behaviour by example,
+and introduce our library for programming with asynchronous effects in Frank.
 
 %
 %% A secondary benefit of decoupling the components of effect handling is that
@@ -2634,21 +2578,22 @@ asynchronous effects in Frank.
 \section{Communication}
 
 Consider a program \feed which lets the user scroll through an seemingly
-infinite feed of information (example due to
-\citeauthor{ahman2020asynchronous}). The program displays each item in the cache
-of data as the user scrolls; the program simulates being infinite by making a
-request for another cache of data whenever the user is nearly at the end of the
-current cache. In this way, the user never notices the feed pausing to download
-more data. This program could be run in parallel with a user interface
-controller and a server, among others.
+infinite feed of information (example due to \cite{ahman2020asynchronous}). The
+program displays each item in its cache of data as the user scrolls; the program
+simulates being infinite by making a request for another cache of data whenever
+the user is nearly at the end of the current cache. In this way, the user never
+notices the feed pausing to download more data; they happily scroll to their
+heart's content.
 
-The client thread \feed~would then interact with these other threads by sending
+The client thread \feed~would be run in parallel with a user interface
+controller, to handle UI interaction, and a server, which supplies extra data
+when needed. The client would then interact with these other threads by sending
 \emph{signals} and receiving \emph{interrupts}. One can imagine these as a
-further division of operation calls; a signal is the sender requesting an
-operation be performed, and an interrupt is the corresponding incoming request
-that the other threads receive. For instance, \feed~would send a \code{request}
-signal to ask the server to send a new cache of data; \feed~owuld then receive a
-\code{response x} interrupt, where \code{x} is the new data from the server.
+further division of operation calls: a thread sends a signal to request another
+thread to perform some operations, and the other threads receive a corresponding
+interrupt. For instance, \feed~would send a \code{request} signal to ask the
+server to send a new cache of data; \feed~would then receive a \code{response x}
+interrupt, where \code{x} is the new data from the server.
 
 Despite this example, we remark that signals do not require a corresponding
 interrupt as response and vice versa.
@@ -2656,7 +2601,9 @@ interrupt as response and vice versa.
 For instance, \feed~would perform \code{display d} signals, as requests to the
 UI controller to display data \code{d}; the client then doesn't need a response
 from the UI controller. Similarly, \feed~receives \code{nextItem} interrupts
-whenever the user requests to see a new item.
+whenever the user requests to see a new item. The system could also receive
+interrupts and send signals; for instance we could have a \textsf{timer}
+interrupt, send by the operating system at a regular interval.
 
 
 % This program has to interact with the outside world,
@@ -2684,10 +2631,6 @@ whenever the user requests to see a new item.
 % which sends \code{stop} and \code{go} signals without expecting an interrupt as
 % a response. Indeed,
 
-\todo{Say something about ``dynamic behaviour'' or whatever}
-
-\todo{Talk about potentially having the system intercept signals?}
-
 % \todo{Write with a view to saying that this behaves asychronously; remember that
 %   the user wants to imagine it's asynchronous and that the implementation is
 %   just a kind of specialisation of this}
@@ -2712,8 +2655,9 @@ The return type of the handler is \code{Maybe \{R\}} as we can choose \emph{not}
 to handle the interrupt by returning \code{nothing}; this could be because it is
 the wrong type of signal, or if some other condition regarding the interrupt is
 not fulfilled\footnote{An interrupt handler which inspects the body of the
-  interrupt before executing is called a \emph{guarded} interrupt handler. We
-  see an example of guarded interrupt handling in
+  interrupt and chooses whether or not to evaluate to \code{nothing} or
+  \code{just thk} is called a \emph{guarded} interrupt handler. We see an
+  example of guarded interrupt handling in
   Section~\ref{sec:pre-emptive-scheduling}.}.
 %
 An example of an interrupt handler is \code{boringFeed};
@@ -2729,13 +2673,18 @@ boringFeed _ = nothing
 
 \noindent The interrupt handler \code{boringFeed} prints out \code{10} on
 receipt of a \code{nextItem} interrupt; if it receives any other interrupt it
-does nothing.
+does nothing. From now on we also call an interrupt handler a \emph{promise}. We say that a promise which reduces to \code{(just thk)} is \emph{fulfilled}.
 
-A thread will then \emph{install} an interrupt handler to use it. Once
-installed, an interrupt handler is then informed of every interrupt that the
-installing thread receives. We formalise what exactly happens in the next section.
+For an interrupt handler to be used, a thread must \emph{install} it. Once
+installed, the interrupt handler is evaluated against every interrupt that the
+installing thread receives. We go into more depth on this process in the next
+section.
 
-\todo{Fix this?}
+% A thread will then \emph{install} an interrupt handler to use it. Once
+% installed, an interrupt handler is then informed of every interrupt that the
+% installing thread receives. We formalise what exactly happens in the next section.
+
+% \todo{Fix this?}
 
 % \noindent When a thread installs the interrupt handler \code{boringFeed}, it
 % prints out \code{10} the first time it receives a \code{nextItem} interrupt.
@@ -2761,20 +2710,21 @@ data PStatus X = waiting | done X | resume {X -> Unit}
 
 A value of type \code{Prom X} is a reference to a value of type \code{PStatus
   X}. It is stored as a reference as we have to write to this cell from two
-locations; the interrupt handler itself updates the cell when it has been
-fulfilled, and the handler for \code{await} commands also has to access the cell
+locations; the interrupt handler itself updates the cell once it has been
+evaluated, and the handler for \code{await} commands also has to access the cell
 when the promise is awaited.
-%
+
 A promise has three possible states, each a different constructor for
 \code{PStatus}. The first, \code{waiting}, expresses that the promise has not
 yet been fulfilled. The second, \code{done x}, expresses that the promise has
-completed and resulted in a value, \code{x}. The third option, \code{resume
+completed and resulted in a value \code{x}. The third option, \code{resume
   cont}, is used when a promise is awaited but has not yet completed; in this
 case, the handler for \code{await} writes the continuation of the caller to
 \code{resume}. The interrupt handler then automatically resumes this once it is
 fulfilled. Ideally, \code{Pid} should be an abstract type; the programmer should
-not be able to directly look inside an installed \code{Pid}. The only way the
-programmer should get the value out of a \code{Pid} is by awaiting the promise.
+not be able to directly look inside an installed \code{Pid} from the point of
+view of a thread. The only way the programmer should get the value out of a
+\code{Pid} is by awaiting the promise.
 
 % The
 % continuation \code{cont} is the continuation offered by the calling code when
@@ -2794,19 +2744,21 @@ interface Promise S =
 The entire \code{Promise} interface is polymorphic in the type of \emph{signals}
 that threads can perform. This will be a datatype such as \code{Feed}, as
 discussed earlier. The commands themselves are polymorphic in the
-result types.
+result type \code{R} of the interrupt handlers being installed or awaited.
 
 The \code{promise} command is used to install an interrupt handler; it takes an
 interrupt handler and returns a \code{Prom R} value. The interrupt handler can
 perform further \code{Promise S} effects, and must also have access to the
-\code{RefState} interface; we show why later. The \code{Yield} interface is also
-present so that interrupt handlers are themselves pre-emptible when executed. We
-can also parametrise the \code{Promise} interface by effects that the interrupt
-handlers can perform. For instance, if using the \code{Promise S [Console]}
-interface interrupt handlers also perfom \code{Console} effects and further
-\code{Promise S [Console]} effects. This is due to implicit effect polymorphism
-as discussed in Chapter~\ref{chap:programming-in-frank}. A stack of installed
-interrupt handlers is kept for each thread.
+\code{RefState} interface. This is because when installing the promises we
+modify them to automatically write to their \code{Prom} cell once they fire. The
+\code{Yield} interface is also present so that interrupt handlers are themselves
+pre-emptible when executed. We can also parametrise the \code{Promise} interface
+by effects that the interrupt handlers can perform. For instance, if using the
+\code{Promise S [Console]} interface interrupt handlers also perfom
+\code{Console} effects and further \code{Promise S [Console]} effects. This is
+due to implicit effect polymorphism as discussed in
+Chapter~\ref{chap:programming-in-frank}. A stack of installed interrupt handlers
+is kept for each thread.
 
 The \code{signal} command takes a value of the \code{S} type and returns
 \code{unit}. When handling \code{signal sig}, all other threads are interrupted;
@@ -2818,10 +2770,7 @@ If $\code{(ih sig)} \redto \code{nothing}$ we leave \code{ih} on the stack and
 look at the next interrupt handler. If
 $\code{(ih sig)} \redto \code{(just thk)}$, the interrupted thread immediately
 performs the thunk \code{thk} before continuing with the interrupted
-computation. In this case, \code{ih} is removed from the stack. We say that a
-promise which reduces to a \code{(just thk)} is \emph{fulfilled}.
-
-\todo{talk about how AEff non-confluent, etc}
+computation. In this case, \code{ih} is removed from the stack.
 
 Finally, the \code{await} command takes a \code{Prom R} value and returns a
 value of type \code{R}. At this point, we inspect the promise state as stored in
@@ -2844,7 +2793,8 @@ the promise interface should have access to it.
 Let's revisit the infinitely scrolling feed example from earlier, and consider
 the client thread, \feed. The bulk of the client is an interrupt handler for
 \code{nextItem} messages. The body of this handler will display the next datum
-and reinstall the interrupt handler, as well as perform any requests for extra data. The type signature of the body of our handler will be
+and reinstall the \code{nextItem} interrupt handler, as well as perform any
+requests for extra data. The type signature of the body of our handler will be:
 
 \begin{lstlisting}
 onNext : {List Int -> Maybe (Prom (List Int) <@\greytext{[InThread]}@>)
@@ -2856,9 +2806,11 @@ onNext : {List Int -> Maybe (Prom (List Int) <@\greytext{[InThread]}@>)
 \code{onNext} is the currently stored cache of data. The second argument is a
 \code{Prom} cell which may not be present; this stores the promise that waits
 for a response from the server when a request for extra data is made.
-
-We use a helper function, \code{displayRestart}, to do some tasks that happen
-every time \code{onNext} is executed;
+%
+We use a helper function, \code{displayRestart}, to display the next item from the cache and reinstall the \code{nextItem} promise:
+% We use a
+% helper function, \code{displayRestart}, to do some tasks that happen every time
+% \code{onNext} is executed:
 
 \begin{lstlisting}
 displayRestart : {List Int -> Maybe (Prom (List Int) <@\greytext{[InThread]}@>)
@@ -2870,19 +2822,20 @@ displayRestart cache p =
     unit
 \end{lstlisting}
 
-\noindent We simply \code{display} the first element of the cache, and then
-install an interrupt handler for \code{nextItem} interrupts that reinstalls
-\code{onNext}, with the top item removed from the cache.
+% \noindent We simply \code{display} the first element of the cache, and then
+% install an interrupt handler for \code{nextItem} interrupts that reinstalls
+% \code{onNext}, with the top item removed from the cache.
 
 For the sake of simplicity we assume that the cache size is fixed to 10 items.
 Then whenever we have 3 or less items in the cache, and another request is not
 already in progress, we want to issue a new request for data.
 
 \begin{lstlisting}
-onNext xs nothing = if (len xs == 3)
-    { let resp = promise {(response x) -> just {x} | _ -> nothing} in
+onNext xs nothing =
+  if (len xs == 3)
+    { let r = promise {(response x) -> just {x} | _ -> nothing} in
       signal (newData (last xs));
-      displayRestart xs (just resp) }
+      displayRestart xs (just r) }
     { displayRestart xs nothing }
 \end{lstlisting}
 
@@ -2895,15 +2848,14 @@ later be received; for instance, the \code{display} signal is sent without
 requiring an interrupt to respond, and the \code{nextItem} interrupt is received
 without the client sending a signal to cause it to come in.
 
-Once the request for new data has been issued, we reinvoke \code{onNext} (via
-\code{displayRestart}), but this time carrying the promise. This leads us to the
-other branch of \code{onNext};
+Once the request for new data has been issued, we reinvoke \code{onNext}, but
+this time carrying the promise. This leads us to the other branch of
+\code{onNext};
 
 \begin{lstlisting}
 onNextList cache (just p) =
     if (len cache == 0)
-         { let newCache = await p in
-           displayRestart newCache nothing }
+         { displayRestart (await p) nothing }
          { displayRestart cache (just p) }
 \end{lstlisting}
 
@@ -2912,47 +2864,79 @@ await the promise, binding \code{newCache} to the result. Once the promise
 \code{p} is fulfilled we proceed as normal with the cache returned from the
 \code{resp} promise.
 
-The client can then use this promise by installing it in the same way as in
-\code{displayRestart}; they may want to install another interrupt handler, to
-listen for other messages from the user interface.
+The client then installs the \code{nextItem} interrupt handler with
+\code{(promise \{nextItem -> just \{onNext startCache nothing\} | _ -> nothing\})}.
+%
+% The client can then use this promise by installing it in the same way as in
+% \code{displayRestart}; they may want to install another interrupt handler, to
+% listen for other messages from the user interface.
 
 \section{Modelling Asynchrony}
 
-Whilst it is convenient to describe our implementation as truly asynchronous, it
-is not in practice.
-
-We use the system as described in Chapter~\ref{chap:preemptive-concurrency} to
-automatically force threads to \yield~after a certain amount of time passes. To
-handle these \yield~commands, we use a scheduler similar to as described in
-Section~\ref{subsec:forking-new-processes}; rather than a multihandler, which
-has a fixed number of threads to be handled, we use the \code{Threads} datatype
-as discussed earlier to store our threads in. When one yields, we take the next
-one and start executing that.
+In this section we address how we model asynchrony in the single-threaded
+setting of Frank. We use the system as described in
+Chapter~\ref{chap:preemptive-concurrency} to automatically force threads to
+\yield~after a certain amount of reductions. To handle these \yield~commands we
+use a scheduler similar to the example in
+Section~\ref{subsec:forking-new-processes}, where we have a collection of
+threads, cycling through in order.
+%
+% As such, the system is not truly
+% asynchronous; a thread does not receive interrupts whilst it is executing, only
+% whilst other threads are executing.
 
 Earlier we mentioned that when a thread sends a signal, all other threads
 immediately perform the body of any fulfilled promises. This is not true in
 practise; all other threads are notified that they should perform the bodies of
 the fulfilled promises, but they only do so when the performing thread gets
-processor time.
+processor time. Specifically, if an interrupt handler \code{ih} for a suspended
+thread \code{thr} reduces to \code{(just thk)} on receipt of an interrupt, we
+update the suspended thread's thunk in our collection to \code{\{thk!; thr!\}}.
+As such, the body of the a fulfilled interrupt handler does not actually get
+executed until the thread gets to run again.
+
+This contrasts with \aeff, where any process may run at any point. However, with
+the pre-emptive concurrency of our system we can easily recreate this. Another
+way in which our system and \aeff~differ is that when a thread receives an
+interrupt in our system \emph{all} interrupt handlers must immediately handle
+it, and the rest of the computation may not reduce. In \aeff, this is not the
+case; a computation may continue to otherwise evaluate before it handles an
+interrupt.
+% The model of \aeff~lets any process run at any point. This yields a greater
+% degree of asynchrony, as interrupts can truly be received at any point. This is
+% however a slightly
+% This is a stricter approach than \aeff, where the system can
 %
-This is a stricter approach than that taken by \aeff, where an interrupted
-computation may still reduce before the interrupt handlers process the
-interrupt. However, this is a testament to the true asynchronous behaviour of
-\aeff; this is only approximated in Frank. It remains as future work to mimic
-the full asynchronous behaviour of \aeff.
+% This is a stricter approach than that taken by \aeff, where an interrupted
+% computation may still reduce before the interrupt handlers process the
+% interrupt. However, this is a testament to the true asynchronous behaviour of
+% \aeff; this is only approximated in Frank. It remains as future work to mimic
+% the full asynchronous behaviour of \aeff.
+
+% \todo{Talk about non-confluence?}
 
 
 \chapter{Examples}
 \label{chap:examples}
 
-Many languages which support async-await --- such as C# and Javascript --- have
-the behaviour built-in. First the compiler is changed to add new syntax, then
-the compiler is changed to add new type-checking, then we have to implement the
-semantics; even worse, we have to do this when we want another asynchronous
-primitive, such as futures (asynchronous post-processing of results).
+Imagine you wanted to implement a structure for asynchronous programming, such
+as async-await. We could add this as a new primitive to our language; we change
+the compiler to add new syntax, then the new type-checking rules, then we have
+to implement the semantics; then we have to do this all over again if we want a
+new feature for asynchronous programming. This is cumbersome, boring, and worst
+of all takes the implementations outside of the language; we cannot tweak them, they are opaque.
 
-We show that with our promise library we can implement all of these common
-asynchronous primitives within the language itself.
+The alternative is to use asynchronous effects as the building block. In this
+section, we show how several useful features for asynchronous programming can be implemented on top of the \code{Promise} library.
+
+% Many languages which support async-await --- such as C# and Javascript --- have
+% the behaviour built-in. First the compiler is changed to add new syntax, then
+% the compiler is changed to add new type-checking, then we have to implement the
+% semantics; even worse, we have to do this when we want another asynchronous
+% primitive, such as futures (asynchronous post-processing of results).
+
+% We show that with our promise library we can implement all of these common
+% asynchronous primitives within the language itself.
 
 \section{Pre-emptive Scheduling}
 \label{sec:pre-emptive-scheduling}
@@ -2986,7 +2970,7 @@ preempt comp = promise stopPromise; comp!
 \end{lstlisting}
 
 \noindent We can easily make a computation pre-emptible by just installing
-\code{stopPromise} before the main body, as in \code{preempt}.
+\code{stopPromise} before the main body, as in the function \code{preempt}.
 
 Once a preemptible computation receives a \code{stop} interrupt, it installs
 \code{goPromise} and immediately awaits it. This blocks the rest of the
@@ -3020,18 +3004,15 @@ This could just be a standard round-robin scheduler or some more sophisticated
 strategy. One disadvantage to our approach is that an adversarial thread could
 just send \code{stop} and \code{go} signals of its own, overriding the
 scheduler. Using session types (\cite{honda1998language}) to restrict
-inter-thread communication would be able to solve this problem.
+communication protocols could be used to solve this problem; we leave this to future work.
 
 \section{Futures}
 \label{sec:futures}
 
-Our asynchronous effects system is expressive enough to implement the
-asychronous post-processing of results, or \emph{futures}. Previously these have
-had to be implemented as a separate language feature
-(\cite{schwinghammer2002concurrent}).
-
-Futures are useful if we want to asynchronously perform some action once another
-promise has been completed. In the context of a web application, this might be
+We can implement the asynchronous post-processing of results, or \emph{futures}
+(\cite{schwinghammer2002concurrent}), with asynchronous effects. Futures are
+useful if we want to asynchronously perform some action once another promise (or
+future) has been completed. In the context of a web application, this might be
 updating the application's display once some remote call for data has finished.
 Observe that this differs from just awaiting the remote call and then updating
 once we have this; we do not want to block everything else from running, rather
@@ -3040,40 +3021,40 @@ perform this action asynchronously, when the promise is complete.
 \begin{lstlisting}
 data Fut = newData (List Int) | result Int
 
-futureList : {Pid R <@\greytext{[Promise Fut]}@> -> {R -> <@\greytext{[Promise Fut]}@> Z} -> Sig
+futureND : {Pid R <@\greytext{[Promise Fut]}@> -> {R -> <@\greytext{[Promise Fut]}@> Z} -> Sig
     -> Maybe {<@\greytext{[Promise Fut]}@> Z}}
-futureList p comp (newData _) = just { let res = await p in comp res}
-futureList _ _ _ = nothing
+futureND p comp (newData _) = just { let res = await p in comp res}
+futureND _ _ _ = nothing
 \end{lstlisting}
 
 \noindent When calling \code{futureList} we supply a promise of result type
 \code{R} and a computation of type \code{R -> Z}. We then await the promise, and
-once we have a value (of type \code{R}) run the computation with this. An
-example computation using this system is;
+once we have a value (of type \code{R}) evaluate the supplied computation on
+this value. An example using this system is:
 
 \begin{lstlisting}
 let recv = promise { (newData xs) -> just {xs} | _ -> nothing} in
-let prod = promise {s -> futureList recv product s} in
-promise {s -> futureList prod {x -> signal (result x)} s}
+let prod = promise {s -> futureND recv product s} in
+promise {s -> futureND prod {x -> signal (result x)} s}
 \end{lstlisting}
 
-\noindent Where we, upon receipt of a list signal, take the product of the list
-element-wise and send another signal with this result. All three of these
-promises are triggered by the same signal; \code{recv} is executed first, which
-then executes \code{prod}, which then lets the final one run. This behaviour
-depends on signals being able to execute many promises at once (that is,
-behaving like \emph{deep} rather than shallow handlers).
+\noindent where we, upon receipt of a \code{newData} interrupt, take the product
+of the list element-wise and send another signal with this result. All three of
+these promises are triggered by the same signal; \code{recv} is executed first,
+which is awaited by \code{prod}. When \code{prod} is fulfilled the final promise
+is unblocked and the \code{result} signal is sent. This behaviour depends on a
+single interrupt being able to trigger many interrupt handlers at once.
 
-\section{Async-Await with Workers}
+\section{Async-Await}
 \label{sec:async-await}
 
 Our asynchronous effects system can express the familiar async-await
-abstraction. This had previously been implemented in Frank by forking new
-threads, then to be handled by a co-operative scheduler like in
-Section~\ref{sec:concurrency}. We realise it by using a controller thread, which
-will send tasks to one of a set of $n$ worker threads. When these worker threads
-are not working, they are instantly skipped; hence there is not much
-inefficiency associated with having extra idle workers.
+abstraction. This had previously been implemented in Frank by \textsf{fork}ing
+new threads, which were then handled with a scheduler like that in
+Section~\ref{subsec:forking-new-processes}. We implement it with asynchronous
+effects by using a controller thread, which will send tasks to one of a set of
+worker threads. When these worker threads are idle, they are instantly skipped;
+hence there is not much inefficiency associated with having extra idle workers.
 
 We use three types of signal here. The calling thread sends \code{call}
 messages, where the arguments are the computation to run and the call ID. The
@@ -3102,10 +3083,10 @@ to give each call a unique identifier. We then install a promise
 \code{resultWaiter} that waits for a result and simply returns it, if the call
 numbers match. Finally we send a \code{call} signal with the process and return
 the result interrupt handler. Observe that \code{async} just returns the
-\code{result} promise; as such, the \code{await} operation is just the built-in
-\code{await} operation.
+\code{result} promise; we just use the given \code{await} operation to await.
 
-The controller installs an interrupt handler to react to \code{call} interrupts.
+
+The controller installs an interrupt handler for \code{call} interrupts.
 The thread tracks which threads have a task running; if there is a free worker
 it then sends a \code{work} signal, containing the computation and the ID of the
 worker who should perform it. The controller then installs a promise to update
@@ -3123,27 +3104,14 @@ asynchronous effects system.
 \section{Cancelling Tasks}
 
 Because we are working in a language equipped with effect handlers, we can
-easily write a handler for the \textsf{Cancel} effect, which just gets rid of
-the continuation and replaces it with some default value (e.g. \code{unit}).
-
-\begin{lstlisting}
-interface Cancel = cancel : Unit
-
-hdlCancel : {<Cancel> Unit -> Unit}
-hdlCancel <cancel -> _> = unit
-hdlCancel unit          = unit
-\end{lstlisting}
-
-% \noindent We can use this to cancel a task issued with \code{async}. Recall that
-% tasks run on their own worker thread. As such, all we need to do to cancel them
-% is reinstall the worker promise --- which waits for new tasks --- and then
-% invoke the cancel effect. As such, our worker code becomes
-\noindent We can use this to cancel a task issued with \code{async}. Recall that
-tasks issued with async-await run on their own thread; we can use the
-\code{cancel} effect to throw away the continuation of the entire thread and
-wipe the slate clean. To make our worker threads cancellable, we change the
-interrupt handler for \code{work} interrupts to install the \code{canceller}
-promise before the worker starts running the task:
+easily write a handler for the $\textsf{Cancel} = \textsf{cancel : Unit}$
+effect, which just gets rid of the continuation and replaces it with some
+default value (e.g. \code{unit}). We can use this to cancel a task issued with
+\code{async}. Recall that tasks issued with async-await run on their own thread;
+we can use the \code{cancel} effect to throw away the continuation of the entire
+thread and wipe the slate clean. To make our worker threads cancellable, we
+change the interrupt handler for \code{work} interrupts to install the
+\code{canceller} promise before the worker starts running the task:
 
 % All we need to do to make our worker threads cancellable
 % is install the \code{canceller} promise below;
@@ -3161,10 +3129,10 @@ canceller _ _ _ = nothing
 % cancelling, so that the thread can one day run a task again. \todo{fix}
 
 \noindent The \code{canceller} promise reinstalls the \code{worker} promise
-before cancelling, so that the thread can eventually run another task again
-after the current task is done. The controller also is modified to install an
-interrupt handler for \code{cancelCall} interrupts; this interrupt handler sets
-the corresponding worker's state to idle.
+before performing the \textsc{cancel}, so that the thread can eventually run
+another task again after the current task is done. The controller also is
+modified to install an interrupt handler for \code{cancelCall} interrupts; this
+interrupt handler sets the corresponding worker's state to idle.
 
 % workProm : {Int -> Sig -> Maybe {<@\greytext{[Promise]}@> Unit}}
 % workProm wid (workIn p wid' callId) =
@@ -3193,7 +3161,9 @@ computation and compose this with the interrupted computation and rehandle this
 single computation with the promise handler. At this point, we also now handle
 \code{Cancel} effects, so that we remove the whole thread. This is a point for
 improvement; handling the \code{Cancel} effect and handling \code{Promise}
-effects are orthogonal, and should be treated separately.
+effects are orthogonal, and should be treated separately. We leave it as future
+work to further investigate and refine interactions between traditional effects
+when installed by promises.
 
 % We have to modify the handler for the \textsf{Promise} effect for this. Recall
 % that when we install a promise, we convert it to a form that takes composes the
@@ -3219,22 +3189,26 @@ combinator (\cite{leijen2017structured}).
 %
 This lets us issue two tasks on two different threads, using the \code{call}
 signal as defined in Section~\ref{sec:async-await}. We then install an interrupt
-handler which listens for \code{result} interrupt; if a \code{result} interrupt
-corresponds to one of the installed threads we cancel the other thread using
-\code{cancelCall} and return the received result.
-
-This lets us write timeouts for functions, where we interleave a potentially
-long-running request with a timer; we cancel the request if it takes too long.
-We can also run two identical requests to different services and just take the
-result of the one that returns first.
+handler for \code{result} interrupts; if a \code{result} interrupt corresponds
+to one of the installed threads we cancel the other thread using
+\code{cancelCall} and return the received result. This lets us write timeouts
+for functions, where we interleave a potentially long-running request with a
+timer; we cancel the request if it takes too long. We can also run two identical
+requests to different services and just take the result of the one that returns
+first.
 
 % Despite \code{interleave} being a more complex function than \code{async}, we
 % can implement it with a small change to \code{async}.
 
 Observe that \code{interleave} is just a slight modification of \code{async} as
-defined earlier. By taking asychronous programming structures out of library
-code and into the programmer's hands, we hope that programmers will be able to
-easily craft their own tools.
+defined earlier. By taking asynchronous programming structures outside of the
+language implementation --- where they are opaque black boxes --- and
+implementing them within the language itself, we hope that programmers will be able to easily craft their own tools specifically to what they need.
+
+
+% By taking asychronous programming structures out of library
+% code and into the programmer's hands, we hope that programmers will be able to
+% shape the
 
 % Observe the similarity of \code{interleave} and \code{async}. By taking
 % asynchronous programming structures out of library code and into the
@@ -3245,25 +3219,31 @@ easily craft their own tools.
 \chapter{Conclusion}
 \label{chap:conclusion}
 
-We conclude with a discussion of the achievements, some limitations, and
+We conclude with a discussion of the achievements, some limitations of our work, and
 possible future work.
 
-Combining the pre-emptive concurrency of
-Chapter~\ref{chap:preemptive-concurrency} with the promise library of
-Chapter~\ref{chap:implementation} yields a direct and comfortable way to write
-programs making use of asynchronous effects.
+In Chapter~\ref{chap:preemptive-concurrency} we gave a simple, natural way to
+accomodate pre-emptive concurrency into Frank. Our solution is particularly nice
+as it doesn't rely on external signals, like in Multicore OCaml
+(\cite{dolan2017concurrent}). Our system lets the programmer easily decide which threads to make pre-emptible, at virtually no overhead.
 
-In Chapter~\ref{chap:examples} we showed how our system can be used to implement
+In Chapter~\ref{chap:implementation} we explained the abstraction of
+asynchronous effects, and how they are implemented in Frank. In
+Chapter~\ref{chap:examples} we showed how this system can be used to implement
 common, useful structures for asynchronous programming. We can recreate the
 behaviour of \aeff, the only other language with support for asynchronous
 effects, and show how asynchronous effects in the prescence of synchronous
 effects can be used to cancel calls.
-%
-In a more holistic sense, we hope that one of the outcomes of this project and
-related work (\cite{ahman2020asynchronous, leijen2017structured,
-  dolan2017concurrent}) is taking the definition of asynchronous programming
-features away from the realm of low-level operating system schedulers and opaque
-web programming interfaces and offering them up to the user.
+
+We hope that one of the outcomes of this project and related work
+(\cite{ahman2020asynchronous, leijen2017structured, dolan2017concurrent}) is
+taking the definition of asynchronous programming features away from the realm
+of low-level operating system schedulers and opaque web programming interfaces
+and offering them up to the user. Synchronous effect handlers have shown to
+achieve a similar goal with respect to exception handling and other control flow
+operations; it is our hope that asynchronous effect handling could do the same.
+
+
 
 % Moreover, we have shown how effect handlers as a programming tool can be used to
 % easily express complicated control flow.
@@ -3275,8 +3255,7 @@ web programming interfaces and offering them up to the user.
 \paragraph*{Type System}
 The implementation of asynchronous effects as discussed does not track
 asynchronous effects, and is untyped. \citeauthor{ahman2020asynchronous} have
-shown that this is possible; it remains as future work to add types to our
-implementation.
+shown that this is possible; it would be interesting to see a typed asynchronous effects system embedded into another language.
 
 \paragraph*{Interactions between Synchronous and Asynchronous Effects}
 Handling effects performed by interrupt handlers can be quite a challenge
@@ -3288,11 +3267,11 @@ everything as this would share the state between all threads. Threading the
 \code{State} handler through the \code{Promise} handler is cumbersome; it would
 be better to leave the \code{Promise} handler to be.
 
-\paragraph*{Session Types for Communication Protocols}
+\paragraph*{Communication Protocols}
 Our system uses the fairly simple communication protocol where every message
 gets sent to every thread. Naturally, two threads might want to communicate
-secretly, without other threads eavesdropping. Finer control of this is
-desirable for larger applications.
+secretly, without other threads eavesdropping. A system of communication
+protocols similar to session types (\cite{honda1998language}) could solve this.
 
 \paragraph*{A Higher Degree of Asynchrony}
 There are several degrees of asynchrony possible with a system like ours. We
@@ -3304,9 +3283,16 @@ interesting to further explore the differences between different models of
 asynchrony and their benefits and limitations.
 
 \paragraph*{Sophisticated Yielding Strategies}
-.....
+Although our \yield{}ing strategy in Section~\ref{sec:starvation} does not allow
+threads to starve due to lack of processing time, we do not have a bound on how
+much time can pass before a thread gets processor time. It would be good to
+either find a bound for \treefrank~or design a new system where a bound can be
+easily expressed.
 
 \paragraph*{Implementations in Other Languages}
+We postulate that our \code{Promise} interface should be simple enough to
+reimplement in other languages; it would be interesting to try to do so in
+another language like Links or Koka and see whether our claim holds.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% BIBLIOGRAPHY
